@@ -10,8 +10,7 @@ import {
   setImeDefault,
 } from '../prefs.js';
 import { canInstall, onInstallAvailable, promptInstall } from '../pwa.js';
-import { exportAllBackup, pickAndImportBackup } from '../services/export.js';
-import { confirmDialog } from '../ui/confirm.js';
+import { exportAllBackup, pickAndRestoreBackup } from '../services/export.js';
 import { toast } from '../ui/toast.js';
 import { h } from '../util.js';
 
@@ -79,28 +78,18 @@ export function mountSettings(container) {
     },
   }, t('exportText'));
 
-  const restoreBtn = h('button', {
+  const restoreBackupBtn = h('button', {
     type: 'button',
     class: 'btn btn--ghost',
     onclick: async () => {
-      const ok = await confirmDialog({
-        title: t('restoreBackup'),
-        body: t('restoreBackupBody'),
-        confirmLabel: t('restore'),
-      });
-      if (!ok) return;
       try {
-        restoreBtn.disabled = true;
-        const result = await pickAndImportBackup();
-        if (!result) return;
-        toast(t('importDone'));
+        const res = await pickAndRestoreBackup();
+        if (res) toast(t('importDone'));
       } catch {
         toast(t('importFailed'), { kind: 'error' });
-      } finally {
-        restoreBtn.disabled = false;
       }
     },
-  }, t('restore'));
+  }, t('import'));
 
   const saveBtn = h('button', {
     type: 'button',
@@ -133,7 +122,7 @@ export function mountSettings(container) {
         row(t('imeDefault'), imeSelect),
         row(t('dailyTemplate'), templateInput, t('dailyTemplateHint')),
         row(t('installApp'), installBtn),
-        row(t('backupAll'), h('div', { class: 'settings__actions' }, backupBtn, restoreBtn), null, 'div'),
+        row(`${t('exportText')} / ${t('import')}`, h('div', { class: 'page-head__group' }, backupBtn, restoreBackupBtn), null, 'div'),
         h('div', { class: 'settings__actions' }, saveBtn))));
 
   container.replaceChildren(h('div', { class: 'note-view' }, head, body));

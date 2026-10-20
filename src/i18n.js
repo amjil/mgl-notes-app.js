@@ -204,7 +204,7 @@ const EN = {
   "exportFailed": "Export failed",
   "backupAll": "Full backup",
   "restoreBackup": "Restore backup",
-  "restoreBackupBody": "Notes with the same id will be overwritten. Missing notes are added.",
+  "restoreBackupBody": "Notes with the same id are skipped. Missing notes are added.",
   "import": "Import",
   "importDone": "Imported",
   "importFailed": "Import failed",

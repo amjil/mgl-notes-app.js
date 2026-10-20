@@ -308,37 +308,6 @@ export function parseAllBackup(input) {
   return buildAllBackupPayload(data.documents, data.blocks, data.exported_at || nowIso());
 }
 
-function snapshotDocument(doc, now) {
-  return {
-    id: doc.id,
-    title: doc.title || '',
-    type: doc.type || 'normal',
-    parent_id: doc.parent_id || null,
-    icon: doc.icon || null,
-    cover: doc.cover || null,
-    created_at: doc.created_at || now,
-    updated_at: now,
-    edited_at: doc.edited_at || now,
-    deleted_at: null,
-  };
-}
-
-function snapshotBlock(block, now) {
-  return {
-    id: block.id,
-    document_id: block.document_id,
-    parent_id: block.parent_id || null,
-    type: block.type || 'paragraph',
-    text: block.text || '',
-    checked: Boolean(block.checked),
-    data_json: block.data_json ?? null,
-    order_index: Number(block.order_index ?? 1000),
-    created_at: block.created_at || now,
-    updated_at: now,
-    deleted_at: null,
-  };
-}
-
 /** Export every active document and block as a JSON backup download. */
 export async function exportAllBackup() {
   const [documents, blocks] = await Promise.all([
@@ -354,145 +323,95 @@ export async function exportAllBackup() {
 }
 
 /**
- * Restore a JSON snapshot into the current library, keeping original ids so
- * parent trees, content-spans, [[wiki]] titles and ((block-ref)) links survive.
- * Existing rows with the same id are overwritten; missing rows are created
- * (and queued as unsynced operations).
+ * Restore documents and blocks from a full-library backup JSON file.
+ * Idempotent: skips rows whose id already exists; queues document_create /
+ * block_create ops for newly written rows, then rebuilds wiki/tag links.
  */
-export async function importAllBackup(source) {
-  let raw = source;
-  if (source && typeof source.text === 'function') raw = await source.text();
-  const payload = parseAllBackup(raw);
+export async function importBackupFile(file) {
+  if (!file) throw new Error('No file');
+  const raw = await file.text();
+  const data = JSON.parse(raw);
+  if (!data || !Array.isArray(data.documents) || !Array.isArray(data.blocks)) {
+    throw new Error('Invalid backup format');
+  }
+
   const now = nowIso();
-  const linkRows = [];
-  const documentIds = [];
+  const importedDocIds = new Set();
 
   await transaction(['documents', 'blocks', 'operations'], 'readwrite', async (s) => {
-    for (const incoming of payload.documents) {
-      const existing = await req(s.documents.get(incoming.id));
-      const row = snapshotDocument(incoming, now);
-      s.documents.put(row);
-      documentIds.push(row.id);
-
-      if (!existing) {
-        s.operations.put(makeOperation('document', row.id, 'document_create', {
-          id: row.id,
-          title: row.title,
-          type: row.type,
-          parent_id: row.parent_id,
-          icon: row.icon,
-          cover: row.cover,
-        }, now));
-        continue;
-      }
-      if (existing.deleted_at) {
-        s.operations.put(makeOperation('document', row.id, 'document_restore', {}, now));
-      }
-      const titleChanged = (existing.title || '') !== row.title;
-      const iconChanged = (existing.icon || null) !== row.icon;
-      const coverChanged = (existing.cover || null) !== row.cover;
-      if (titleChanged || iconChanged || coverChanged) {
-        const update = {};
-        if (titleChanged) update.title = row.title;
-        if (iconChanged) update.icon = row.icon;
-        if (coverChanged) update.cover = row.cover;
-        s.operations.put(makeOperation('document', row.id, 'document_update', update, now));
-      }
-      if ((existing.parent_id || null) !== row.parent_id) {
-        s.operations.put(makeOperation('document', row.id, 'document_move', {
-          parent_id: row.parent_id,
-        }, now));
-      }
+    for (const doc of data.documents) {
+      if (!doc?.id) continue;
+      const existing = await req(s.documents.get(doc.id));
+      if (existing) continue;
+      s.documents.put(doc);
+      importedDocIds.add(doc.id);
+      s.operations.put(makeOperation('document', doc.id, 'document_create', {
+        id: doc.id,
+        title: doc.title || '',
+        type: doc.type || 'normal',
+        parent_id: doc.parent_id || null,
+        icon: doc.icon || null,
+        cover: doc.cover || null,
+      }, doc.created_at || now));
     }
 
-    for (const incoming of payload.blocks) {
-      const existing = await req(s.blocks.get(incoming.id));
-      const row = snapshotBlock(incoming, now);
-      s.blocks.put(row);
-      linkRows.push({ id: row.id, text: row.text });
-
-      if (!existing || existing.deleted_at) {
-        s.operations.put(makeOperation('block', row.id, 'block_create', {
-          id: row.id,
-          document_id: row.document_id,
-          parent_id: row.parent_id,
-          type: row.type,
-          text: row.text,
-          checked: row.checked,
-          data_json: row.data_json,
-          order_index: row.order_index,
-        }, now));
-        continue;
-      }
-
-      const textChanged = existing.text !== row.text;
-      const typeChanged = existing.type !== row.type;
-      const dataChanged = (existing.data_json ?? null) !== (row.data_json ?? null);
-      const checkedChanged = Boolean(existing.checked) !== row.checked;
-      const parentChanged = (existing.parent_id || null) !== row.parent_id;
-      const orderChanged = Number(existing.order_index) !== Number(row.order_index);
-      if (textChanged || typeChanged || dataChanged) {
-        const update = {};
-        if (textChanged) update.text = row.text;
-        if (typeChanged) update.type = row.type;
-        if (dataChanged) update.data_json = row.data_json;
-        s.operations.put(makeOperation('block', row.id, 'block_update', update, now));
-      }
-      if (checkedChanged) {
-        s.operations.put(makeOperation('block', row.id, 'block_check', { checked: row.checked }, now));
-      }
-      if (parentChanged || orderChanged) {
-        s.operations.put(makeOperation('block', row.id, 'block_move', {
-          parent_id: row.parent_id,
-          order_index: row.order_index,
-        }, now));
-      }
+    for (const blk of data.blocks) {
+      if (!blk?.id || !blk?.document_id) continue;
+      const existing = await req(s.blocks.get(blk.id));
+      if (existing) continue;
+      s.blocks.put(blk);
+      importedDocIds.add(blk.document_id);
+      s.operations.put(makeOperation('block', blk.id, 'block_create', {
+        id: blk.id,
+        document_id: blk.document_id,
+        parent_id: blk.parent_id || null,
+        type: blk.type || 'paragraph',
+        text: blk.text || '',
+        checked: Boolean(blk.checked),
+        data_json: blk.data_json ?? null,
+        order_index: Number(blk.order_index ?? 1000),
+      }, blk.created_at || now));
     }
   });
 
-  const { rebuildLinksForRows } = await import('./links.js');
-  await rebuildLinksForRows(linkRows);
-  const ids = new Set(documentIds);
-  emit('documents-changed', { documentIds: ids });
-  emit('local-change', { documentIds: ids });
-  return { documents: payload.documents.length, blocks: payload.blocks.length };
+  if (importedDocIds.size) {
+    const { reindexAllLinks } = await import('./links.js');
+    await reindexAllLinks();
+    emit('documents-changed', { documentIds: importedDocIds });
+    emit('local-change', { documentIds: importedDocIds });
+  }
+  return { count: importedDocIds.size };
+}
+
+/** Alias for importBackupFile. */
+export async function importAllBackup(file) {
+  return importBackupFile(file);
 }
 
 /** Open a file picker and restore a `.json` library backup. */
-export function pickAndImportBackup() {
+export function pickAndRestoreBackup() {
   return new Promise((resolve, reject) => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.json,application/json';
     input.style.display = 'none';
-    let settled = false;
-    const finish = (value, err) => {
-      if (settled) return;
-      settled = true;
-      window.removeEventListener('focus', onFocus);
+    const done = async (file) => {
       input.remove();
-      if (err) reject(err);
-      else resolve(value);
-    };
-    input.addEventListener('change', async () => {
-      const file = input.files?.[0] || null;
-      if (!file) {
-        finish(null);
-        return;
-      }
+      if (!file) { resolve(null); return; }
       try {
-        finish(await importAllBackup(file));
+        resolve(await importBackupFile(file));
       } catch (err) {
-        finish(undefined, err);
+        reject(err);
       }
-    });
-    const onFocus = () => {
-      setTimeout(() => {
-        if (!settled && !input.files?.length) finish(null);
-      }, 500);
     };
-    window.addEventListener('focus', onFocus);
+    input.addEventListener('change', () => void done(input.files?.[0] || null));
+    input.addEventListener('cancel', () => void done(null));
     document.body.append(input);
     input.click();
   });
+}
+
+/** Alias for pickAndRestoreBackup. */
+export function pickAndImportBackup() {
+  return pickAndRestoreBackup();
 }
