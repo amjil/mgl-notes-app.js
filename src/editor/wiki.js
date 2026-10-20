@@ -243,7 +243,6 @@ function nextUndecoratedHit(root) {
  */
 export function decorateEditable(el) {
   if (!el || el.getAttribute('contenteditable') !== 'true') return false;
-  if (el.closest('.mgl-cell')) return false;
 
   const hadFocus = el.contains(document.activeElement) || el === document.activeElement;
   const sel = window.getSelection();
@@ -280,7 +279,7 @@ export function decorateHost(host) {
     if ((a && host.contains(a)) || (f && host.contains(f))) return false;
   }
   let changed = false;
-  host.querySelectorAll('.block-content[contenteditable="true"], .toggle-title').forEach((el) => {
+  host.querySelectorAll('.mgl-cell, .block-content[contenteditable="true"], .toggle-title').forEach((el) => {
     if (decorateEditable(el)) changed = true;
   });
   return changed;

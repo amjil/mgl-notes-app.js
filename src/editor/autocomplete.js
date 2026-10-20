@@ -117,8 +117,8 @@ export function attachAutocomplete(host) {
     }
     const node = sel.anchorNode;
     const el = node?.nodeType === 1 ? node : node?.parentElement;
-    const part = el?.closest?.('.block-content[contenteditable="true"], .toggle-title');
-    if (!part || !host.contains(part) || part.closest('.mgl-cell')) {
+    const part = el?.closest?.('.mgl-cell, .block-content[contenteditable="true"], .toggle-title');
+    if (!part || !host.contains(part)) {
       hide();
       return;
     }

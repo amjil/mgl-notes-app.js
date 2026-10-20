@@ -261,6 +261,32 @@ export function createEditorSession(host, documentId, { focusBlockId = null } = 
   host.addEventListener('dragover', onDragOver);
   host.addEventListener('drop', onDrop);
 
+  const onTableKeyDown = (e) => {
+    if (e.key !== 'Tab' || e.defaultPrevented) return;
+    const cell = e.target.closest?.('.mgl-cell');
+    if (!cell || !host.contains(cell)) return;
+    const tableWrapper = cell.closest('.block-wrapper[data-block-type="table"]');
+    if (!tableWrapper) return;
+
+    const cells = Array.from(tableWrapper.querySelectorAll('.mgl-cell'));
+    const idx = cells.indexOf(cell);
+    if (idx === -1) return;
+
+    const nextIdx = e.shiftKey ? idx - 1 : idx + 1;
+    if (nextIdx >= 0 && nextIdx < cells.length) {
+      e.preventDefault();
+      const target = cells[nextIdx];
+      target.focus();
+      const range = document.createRange();
+      range.selectNodeContents(target);
+      range.collapse(false);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+  };
+  host.addEventListener('keydown', onTableKeyDown);
+
   decorateToolbar(host, editor, insertImageFromFile);
 
   const offPull = onBeforePull(() => flush());
@@ -325,6 +351,7 @@ export function createEditorSession(host, documentId, { focusBlockId = null } = 
       host.removeEventListener('paste', onPaste);
       host.removeEventListener('dragover', onDragOver);
       host.removeEventListener('drop', onDrop);
+      host.removeEventListener('keydown', onTableKeyDown);
       window.removeEventListener('pointerdown', onPointerDown, true);
       window.removeEventListener('pointerup', onPointerUp, true);
       window.removeEventListener('pointercancel', onPointerUp, true);
