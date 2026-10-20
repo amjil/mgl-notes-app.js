@@ -28,6 +28,7 @@ import { mountEditor } from './pages/editor.js';
 import { mountTrash } from './pages/trash.js';
 import { mountSettings } from './pages/settings.js';
 import { mountReview } from './pages/review.js';
+import { mountImeDev } from './pages/ime-dev.js';
 import { applyPrefs } from './prefs.js';
 import { initPwa } from './pwa.js';
 
@@ -51,6 +52,7 @@ const PAGES = {
   trash: mountTrash,
   settings: mountSettings,
   doc: mountEditor,
+  ...(import.meta.env.DEV ? { 'ime-dev': mountImeDev } : {}),
 };
 
 let shell = null;
@@ -140,7 +142,10 @@ async function render(route) {
     navigate('/today', { replace: true });
     return;
   }
-  shell.setActive(route.name === 'doc' || route.name === 'search' ? 'documents' : route.name);
+  const navId = route.name === 'doc' || route.name === 'search'
+    ? 'documents'
+    : (PAGES[route.name] ? route.name : '');
+  shell.setActive(navId);
   const host = document.createElement('div');
   host.className = 'app-page';
   shell.main.replaceChildren(host);

@@ -1,21 +1,21 @@
 /**
- * Dev-only panel: submit words to IME POST /api/user_words (user overlay files).
+ * Dev-only page body: submit words to IME POST /api/user_words (user overlay files).
  */
 import { addUserWord, parseNextWordsField } from '../api/ime.js';
 import { imeBaseUrl } from '../config.js';
 import { toast } from '../ui/toast.js';
 import { h } from '../util.js';
-import { attachFieldIme, commitPending } from './index.js';
+import { attachFieldIme, commitPending, preferVirtualIme, suppressSystemKeyboard } from './index.js';
 
 /**
- * @param {(label: string, control: HTMLElement, hint?: string | null, tag?: string) => HTMLElement} row
- * @returns {{ row: HTMLElement, destroy: () => void } | null}
+ * @param {HTMLElement} container
+ * @returns {{ destroy: () => void } | null}
  */
-export function createImeUserWordDevRow(row) {
+export function mountImeUserWordDev(container) {
   if (!import.meta.env.DEV) return null;
 
   const wordInput = h('input', {
-    class: 'mn-input settings__input settings__dev-ime-word',
+    class: 'mn-input settings__input ime-dev__word',
     type: 'text',
     spellcheck: 'false',
     lang: 'mn-Mong',
@@ -23,22 +23,37 @@ export function createImeUserWordDevRow(row) {
   });
 
   const nextInput = h('textarea', {
-    class: 'mn-input settings__textarea settings__dev-ime-next',
-    rows: '4',
+    class: 'mn-input settings__textarea ime-dev__next',
+    rows: '6',
     spellcheck: 'false',
     lang: 'mn-Mong',
     placeholder: 'nextWords (comma or newline)',
+    inputmode: 'none',
+    virtualkeyboardpolicy: 'manual',
   });
 
-  const imes = [attachFieldIme(wordInput), attachFieldIme(nextInput)];
+  const virtual = preferVirtualIme();
+  const imeOpts = { keepSelector: '.ime-dev' };
+  const wordIme = attachFieldIme(wordInput, imeOpts);
+  const nextIme = virtual ? attachFieldIme(nextInput, imeOpts) : null;
+
+  /** @type {(() => void) | null} */
+  let blockOsKeyboard = null;
+  if (virtual) {
+    blockOsKeyboard = () => suppressSystemKeyboard(nextInput);
+    blockOsKeyboard();
+    nextInput.addEventListener('focusin', blockOsKeyboard);
+    nextInput.addEventListener('pointerdown', blockOsKeyboard);
+  }
 
   const submitBtn = h('button', {
     type: 'button',
-    class: 'btn btn--ghost',
+    class: 'btn btn--primary',
     onclick: async () => {
       submitBtn.disabled = true;
       try {
-        for (const handle of imes) await commitPending(handle.ime);
+        await commitPending(wordIme.ime);
+        if (nextIme) await commitPending(nextIme.ime);
         await addUserWord({
           word: wordInput.value,
           nextWords: parseNextWordsField(nextInput.value),
@@ -54,16 +69,40 @@ export function createImeUserWordDevRow(row) {
 
   const base = imeBaseUrl() || '(off — local dictionary only)';
 
-  const control = h('div', { class: 'settings__control settings__dev-ime' },
-    wordInput,
-    nextInput,
-    submitBtn,
-    h('span', { class: 'settings__hint settings__hint--latin' }, `[DEV] ${base}`));
+  const panel = h('div', { class: 'settings ime-dev', 'data-ime-dev': '1' },
+    h('div', { class: 'settings__row' },
+      h('span', { class: 'settings__label' }, 'word'),
+      h('div', { class: 'settings__control' }, wordInput)),
+    h('div', { class: 'settings__row' },
+      h('span', { class: 'settings__label' }, 'nextWords'),
+      h('div', { class: 'settings__control' },
+        nextInput,
+        h('span', { class: 'settings__hint settings__hint--latin' }, 'Optional; prepended on server (max 64).'))),
+    h('div', { class: 'settings__row' },
+      h('span', { class: 'settings__label' }, 'server'),
+      h('div', { class: 'settings__control' },
+        h('span', { class: 'settings__hint settings__hint--latin' }, base),
+        submitBtn)));
+
+  const head = h('header', { class: 'note-view__head' },
+    h('h1', { class: 'page-head__title settings__hint--latin' }, '[DEV] IME user_words'));
+
+  const body = h('section', { class: 'page mn-surface note-view__body' },
+    h('div', { class: 'page-inner mn-columns' }, panel));
+
+  container.replaceChildren(h('div', { class: 'note-view' }, head, body));
+
+  const offNext = () => {
+    if (!blockOsKeyboard) return;
+    nextInput.removeEventListener('focusin', blockOsKeyboard);
+    nextInput.removeEventListener('pointerdown', blockOsKeyboard);
+  };
 
   return {
-    row: row('[DEV] IME user word', control, 'POST /api/user_words → user overlay', 'div'),
     destroy() {
-      imes.forEach((handle) => handle.destroy());
+      offNext();
+      wordIme.destroy();
+      nextIme?.destroy();
     },
   };
 }

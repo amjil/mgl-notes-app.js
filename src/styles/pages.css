@@ -580,10 +580,9 @@ mark.search-mark {
   text-orientation: mixed;
   font-family: var(--app-font-mongol);
   display: flex;
-  flex-direction: row; /* top → bottom */
+  flex-direction: row; /* top → bottom; cross axis = horizontal in column */
   align-items: center;
-  justify-content: center;
-  justify-content: safe center;
+  justify-content: flex-start;
   gap: 0.75rem;
   padding: 1.25rem 0.75rem;
   border-right: 1px solid var(--app-line);
@@ -883,7 +882,7 @@ mark.search-mark {
   display: flex;
   flex-direction: row;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 0.4rem;
   margin: 0;
   padding: 0.2rem 0;
@@ -1270,11 +1269,11 @@ mark.search-mark {
   font-family: var(--app-font-ui, system-ui, sans-serif);
 }
 
-.settings__dev-ime-next {
+.ime-dev__next {
   min-block-size: 5rem;
 }
 
-.settings__dev-ime-word {
+.ime-dev__word {
   font-family: var(--app-font-mongol);
   writing-mode: vertical-lr;
 }

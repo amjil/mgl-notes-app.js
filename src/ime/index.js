@@ -166,7 +166,11 @@ function attachVirtualKeyboard(ime, { keepSelector = '' } = {}) {
 
   const claim = () => {
     suppressSystemKeyboard(target);
-    if (owner && owner !== ime) owner.hideKeyboard();
+    instances.forEach((other) => {
+      if (other === ime) return;
+      other.hideCandidates?.();
+      if (owner === other) other.hideKeyboard();
+    });
     owner = ime;
     claimedAt = performance.now();
     ime.showKeyboard();
@@ -185,6 +189,7 @@ function attachVirtualKeyboard(ime, { keepSelector = '' } = {}) {
     if (inNode(e, target) || inNode(e, ime.keyboardEl) || inNode(e, ime.candidatesEl)) return;
     if (e.target?.closest?.('mgl-candidates, mgl-keyboard, mgl-emoji-picker')) return;
     if (keepSelector && e.target?.closest?.(keepSelector)) return;
+    if (e.target?.closest?.('.ime-dev, [data-ime-dev]')) return;
     release();
   };
 
@@ -210,6 +215,15 @@ function attachVirtualKeyboard(ime, { keepSelector = '' } = {}) {
   };
 }
 
+/** Keep every mobile instance's candidate bar above the virtual keyboard. */
+export function syncMobileCandidateBars() {
+  instances.forEach((ime) => {
+    if (ime.profile === 'mobile' && typeof ime.syncMobileChrome === 'function') {
+      ime.syncMobileChrome();
+    }
+  });
+}
+
 /** Track the virtual keyboard height in --app-ime-kb so the shell shrinks above it. */
 export function trackImeKeyboard() {
   const root = document.documentElement;
@@ -220,6 +234,7 @@ export function trackImeKeyboard() {
     const height = el?.offsetHeight || 0;
     root.style.setProperty('--app-ime-kb', `${height}px`);
     document.body.classList.toggle('mgl-ime-mobile-open', height > 0);
+    syncMobileCandidateBars();
   };
   const watch = (el) => {
     observer?.disconnect();

@@ -9,6 +9,7 @@
  *   #/search
  *   #/trash
  *   #/settings
+ *   #/ime-dev  (dev build only — IME user overlay tester)
  *   #/doc/:id
  */
 const listeners = new Set();

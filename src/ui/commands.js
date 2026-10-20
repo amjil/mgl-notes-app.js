@@ -41,6 +41,11 @@ function commands() {
     { id: 'search', label: t('search'), run: () => navigate('/documents?search=1') },
     { id: 'trash', label: t('trash'), run: () => navigate('/trash') },
     { id: 'settings', label: t('settings'), run: () => navigate('/settings') },
+    ...(import.meta.env.DEV ? [{
+      id: 'ime-dev',
+      label: '[DEV] IME user_words',
+      run: () => navigate('/ime-dev'),
+    }] : []),
     {
       id: 'new',
       label: t('newDocument'),
