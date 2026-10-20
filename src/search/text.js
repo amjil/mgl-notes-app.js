@@ -1,7 +1,8 @@
 /**
  * Mongolian-aware folding for FlexSearch.
- * Free variation selectors and the vowel separator are shaping marks, not
- * letters, so the same word matches with or without them. Words split on
+ * Free variation selectors, the vowel separator, and zero-width chars (ZWSP
+ * from the IME/editor) are ignored so the same word matches with or without
+ * them. Words split on
  * whitespace — including U+202F, the usual traditional-Mongolian word gap —
  * and on punctuation. Latin is lowercased; phonetic Latin encoders are not
  * used, because they would discard Mongolian letters.
@@ -9,10 +10,10 @@
 import { Encoder } from 'flexsearch';
 
 /** Bump when the encoder or indexed fields change; forces a full rebuild. */
-export const SEARCH_REV = 1;
+export const SEARCH_REV = 2;
 
-const MARK_START = '\u180B';
-const MARK_END = '\u180E';
+/** Same invisible chars stripped in the editor (wiki.js, spans.js) and IME fields. */
+const SKIP_CHAR = /[\u180B-\u180E\u200B-\u200D\uFEFF]/u;
 const SPLIT = /[^\p{L}\p{N}]+/u;
 
 export function fold(str) {
@@ -35,7 +36,7 @@ function foldMap(text) {
   const map = [];
   let i = 0;
   for (const ch of raw) {
-    if (ch < MARK_START || ch > MARK_END) {
+    if (!SKIP_CHAR.test(ch)) {
       const lower = ch.toLowerCase();
       for (const out of lower) {
         norm += out;

@@ -439,3 +439,62 @@ function pickRow(row) {
   ROW_FIELDS.forEach((k) => { out[k] = row[k] ?? ROW_DEFAULTS[k] ?? null; });
   return out;
 }
+
+/**
+ * List all `todo` blocks across active documents, sorted by document edit time & block order.
+ */
+export async function listAllTasks() {
+  const [docs, blocks] = await Promise.all([
+    getAll('documents'),
+    getAll('blocks'),
+  ]);
+  const docById = new Map(docs.filter((d) => !d.deleted_at).map((d) => [d.id, d]));
+  const tasks = [];
+
+  blocks.forEach((b) => {
+    if (!b || b.deleted_at || b.type !== 'todo') return;
+    const doc = docById.get(b.document_id);
+    if (!doc) return;
+    tasks.push({
+      id: b.id,
+      documentId: doc.id,
+      docTitle: doc.title || '',
+      docType: doc.type || 'normal',
+      text: b.text || '',
+      checked: Boolean(b.checked),
+      orderIndex: Number(b.order_index) || 0,
+      updatedAt: b.updated_at || doc.edited_at || doc.updated_at || '',
+    });
+  });
+
+  return tasks.sort((a, b) => {
+    if (a.checked !== b.checked) return a.checked ? 1 : -1;
+    const tCmp = String(b.updatedAt).localeCompare(String(a.updatedAt));
+    if (tCmp) return tCmp;
+    return a.orderIndex - b.orderIndex;
+  });
+}
+
+/** Toggle a single todo block's `checked` status and emit a `block_check` sync op. */
+export async function toggleTaskChecked(blockId, nextChecked) {
+  const now = nowIso();
+  let docId = null;
+  const checked = Boolean(nextChecked);
+
+  await transaction(['documents', 'blocks', 'operations'], 'readwrite', async (s) => {
+    const blk = await req(s.blocks.get(blockId));
+    if (!blk || blk.deleted_at) return;
+    if (Boolean(blk.checked) === checked) return;
+    docId = blk.document_id;
+    s.blocks.put({ ...blk, checked, updated_at: now });
+    s.operations.put(makeOperation('block', blockId, 'block_check', { checked }, now));
+
+    const doc = await req(s.documents.get(docId));
+    if (doc) s.documents.put({ ...doc, edited_at: now });
+  });
+
+  if (docId) {
+    emit('blocks-changed', { documentIds: new Set([docId]) });
+    emitLocal(docId);
+  }
+}

@@ -1,8 +1,10 @@
 import { listTagsWithCounts, notesForTag } from '../services/links.js';
+import { attachFieldIme } from '../ime/index.js';
+import { appendHighlighted, fold } from '../search/text.js';
 import { on } from '../events.js';
 import { t } from '../i18n.js';
 import { mentionContext } from '../util/mention-context.js';
-import { h } from '../util.js';
+import { debounce, h } from '../util.js';
 
 const DATE_TITLE = /^\d{4}-\d{2}-\d{2}$/;
 const SNIP_RADIUS = 12;
@@ -26,21 +28,25 @@ function snippetEl(tag, mention) {
   return el;
 }
 
-function noteCard(tag, group) {
+function noteCard(tag, group, filterQuery = '') {
   const title = group.title || t('untitled');
   const mention = group.mentions[0];
+  const titleEl = h('span', { class: `doc-card__title${group.title ? '' : ' is-untitled'}` });
+  if (filterQuery && group.title) appendHighlighted(titleEl, title, filterQuery);
+  else titleEl.textContent = title;
+
   return h('article', {
     class: `doc-card search-card${group.type === 'daily' ? ' doc-card--daily' : ''}`,
   },
     h('a', { class: 'doc-card__open search-card__open', href: openHref(group) },
-      h('span', { class: `doc-card__title${group.title ? '' : ' is-untitled'}` }, title),
+      titleEl,
       mention ? snippetEl(tag, mention) : null,
       group.mentions.length > 1
         ? h('span', { class: 'tag-card__more mn-upright' }, `+${group.mentions.length - 1}`)
         : null));
 }
 
-/** Browse all #tags, or notes under one selected tag. */
+/** Browse all #tags, or notes under one selected tag, with live Mongolian-aware filtering. */
 export function mountTags(container, { params = [] } = {}) {
   const selected = String(params[0] || '').trim();
   const list = h('div', { class: 'doc-list tag-list' });
@@ -53,59 +59,111 @@ export function mountTags(container, { params = [] } = {}) {
     ? h('a', { class: 'btn btn--ghost', href: '#/tags', title: t('tags') }, t('all'))
     : null;
 
-  const head = h('header', { class: 'note-view__head' }, title, back);
+  const filterInput = h('input', {
+    class: 'mn-input search-input',
+    type: 'text',
+    placeholder: t('searchPlaceholder'),
+    'aria-label': t('search'),
+    spellcheck: 'false',
+    lang: 'mn-Mong',
+    autocomplete: 'off',
+  });
+
+  const head = h('header', { class: 'note-view__head' }, title, back, filterInput);
 
   const body = h('section', { class: 'page mn-surface note-view__body' },
     h('div', { class: 'page-inner mn-columns' }, list));
   container.replaceChildren(h('div', { class: 'note-view' }, head, body));
 
+  const ime = attachFieldIme(filterInput);
   let alive = true;
   let seq = 0;
+  let cachedTags = [];
+  let cachedNotes = [];
 
-  async function render() {
-    const token = ++seq;
-    const tags = await listTagsWithCounts();
-    if (!alive || token !== seq) return;
+  function renderFiltered() {
+    if (!alive) return;
+    const rawQuery = filterInput.value.trim();
+    const qNorm = fold(rawQuery);
 
-    if (!tags.length) {
+    if (!cachedTags.length) {
       list.replaceChildren(h('p', { class: 'doc-list__empty' }, t('noTags')));
       return;
     }
 
+    // 1. 标签总览视图：过滤标签名
     if (!selected) {
+      const matched = qNorm
+        ? cachedTags.filter((row) => fold(row.tag).includes(qNorm))
+        : cachedTags;
+
+      if (!matched.length) {
+        list.replaceChildren(h('p', { class: 'doc-list__empty' }, t('noResults')));
+        return;
+      }
+
       list.replaceChildren(
         h('p', { class: 'doc-list__hint' }, t('tagsHint')),
-        ...tags.map((row) => h('article', { class: 'doc-card tag-overview-card' },
-          h('a', {
-            class: 'doc-card__open',
-            href: `#/tags/${encodeURIComponent(row.tag)}`,
-          },
-            h('span', { class: 'doc-card__title' }, `#${row.tag}`),
-            h('span', { class: 'doc-card__meta mn-upright' }, String(row.count))))));
+        ...matched.map((row) => {
+          const labelEl = h('span', { class: 'doc-card__title' }, '#');
+          if (rawQuery) appendHighlighted(labelEl, row.tag, rawQuery);
+          else labelEl.append(document.createTextNode(row.tag));
+
+          return h('article', { class: 'doc-card tag-overview-card' },
+            h('a', {
+              class: 'doc-card__open',
+              href: `#/tags/${encodeURIComponent(row.tag)}`,
+            },
+              labelEl,
+              h('span', { class: 'doc-card__meta mn-upright' }, String(row.count))));
+        }),
+      );
       return;
     }
 
-    if (!tags.some((row) => row.tag === selected)) {
-      list.replaceChildren(h('p', { class: 'doc-list__empty' }, t('noResults')));
-      return;
-    }
+    // 2. 单标签下的笔记列表视图：按笔记标题或提及段落内容过滤
+    const matchedNotes = qNorm
+      ? cachedNotes.filter((g) => {
+        if (fold(g.title || '').includes(qNorm)) return true;
+        return g.mentions.some((m) => fold(m.text || '').includes(qNorm));
+      })
+      : cachedNotes;
 
-    const notes = await notesForTag(selected);
-    if (!alive || token !== seq) return;
-    if (!notes.length) {
+    if (!matchedNotes.length) {
       list.replaceChildren(h('p', { class: 'doc-list__empty' }, t('noResults')));
       return;
     }
-    list.replaceChildren(...notes.map((g) => noteCard(selected, g)));
+    list.replaceChildren(...matchedNotes.map((g) => noteCard(selected, g, rawQuery)));
   }
 
-  const offDocs = on('documents-changed', () => { void render(); });
-  const offBlocks = on('blocks-changed', () => { void render(); });
-  void render();
+  async function loadAndRender() {
+    const token = ++seq;
+    const tags = await listTagsWithCounts();
+    if (!alive || token !== seq) return;
+    cachedTags = tags;
+
+    if (selected && tags.some((row) => row.tag === selected)) {
+      const notes = await notesForTag(selected);
+      if (!alive || token !== seq) return;
+      cachedNotes = notes;
+    } else {
+      cachedNotes = [];
+    }
+    renderFiltered();
+  }
+
+  const onFilterInput = debounce(renderFiltered, 120);
+  filterInput.addEventListener('input', onFilterInput);
+
+  const offDocs = on('documents-changed', () => { void loadAndRender(); });
+  const offBlocks = on('blocks-changed', () => { void loadAndRender(); });
+  void loadAndRender();
 
   return {
     destroy() {
       alive = false;
+      onFilterInput.cancel();
+      ime.destroy();
       offDocs();
       offBlocks();
     },

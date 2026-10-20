@@ -13,6 +13,8 @@ test('search/text: Mongolian FVS/MVS folding and highlight range mapping', () =>
   const query = 'ᠪᠢᠴᠢᠭᠦᠨ'; // 不带 U+180E 查询也能命中带 U+180E 的原文
   assert.equal(fold('ᠪᠢᠴᠢᠭ\u180Eᠦᠨ'), fold('ᠪᠢᠴᠢᠭᠦᠨ'));
   assert.equal(fold('ᠠ\u180Bᠪ'), fold('ᠠᠪ'));
+  assert.equal(fold('ᠠ\u200bᠪᠤ'), fold('ᠠᠪᠤ'));
+  assert.ok(fold('ᠠᠪᠤ').includes(fold('ᠠ\u200bᠪ\u200bᠤ')));
 
   const ranges = matchRanges(raw, query);
   assert.equal(ranges.length, 1);

@@ -1554,3 +1554,25 @@ mark.search-mark {
   align-items: flex-start;
   gap: 1rem;
 }
+
+/* ---------- Tasks page (aggregated filter) -------------------------------- */
+
+.task-card {
+  padding-inline-start: 0.55rem;
+}
+
+.task-card__check {
+  align-self: center;
+  cursor: pointer;
+  margin-inline-end: 0.2rem;
+}
+
+.task-card__text.is-checked {
+  text-decoration: line-through;
+  color: var(--app-muted);
+}
+
+.task-card__source {
+  font-size: 12px;
+  opacity: 0.8;
+}
