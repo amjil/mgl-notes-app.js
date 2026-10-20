@@ -1266,6 +1266,19 @@ mark.search-mark {
   max-inline-size: clamp(10rem, 42vh, 18rem);
 }
 
+.settings__hint--latin {
+  font-family: var(--app-font-ui, system-ui, sans-serif);
+}
+
+.settings__dev-ime-next {
+  min-block-size: 5rem;
+}
+
+.settings__dev-ime-word {
+  font-family: var(--app-font-mongol);
+  writing-mode: vertical-lr;
+}
+
 .settings__actions {
   display: flex;
   flex-direction: row;

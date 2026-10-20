@@ -13,6 +13,7 @@ import {
 } from '../prefs.js';
 import { canInstall, onInstallAvailable, promptInstall } from '../pwa.js';
 import { exportAllBackup, pickAndRestoreBackup } from '../services/export.js';
+import { createImeUserWordDevRow } from '../ime/user-word-dev.js';
 import { toast } from '../ui/toast.js';
 import { h } from '../util.js';
 
@@ -121,18 +122,23 @@ export function mountSettings(container) {
   const head = h('header', { class: 'note-view__head' },
     h('h1', { class: 'page-head__title' }, t('settings')));
 
+  const settingsRoot = h('div', { class: 'settings' },
+    row(t('language'), langSelect),
+    row(t('server'), serverInput),
+    row(t('fontSize'), fontSelect),
+    row(t('imeDefault'), imeSelect),
+    row(t('theme'), themeSelect),
+    row(t('dailyTemplate'), templateInput, t('dailyTemplateHint')),
+    row(t('installApp'), installBtn),
+    row(`${t('exportText')} / ${t('import')}`, h('div', { class: 'page-head__group' }, backupBtn, restoreBackupBtn), null, 'div'));
+
+  const imeDev = createImeUserWordDevRow(row);
+  if (imeDev) settingsRoot.append(imeDev.row);
+
+  settingsRoot.append(h('div', { class: 'settings__actions' }, saveBtn));
+
   const body = h('section', { class: 'page mn-surface note-view__body' },
-    h('div', { class: 'page-inner mn-columns' },
-      h('div', { class: 'settings' },
-        row(t('language'), langSelect),
-        row(t('server'), serverInput),
-        row(t('fontSize'), fontSelect),
-        row(t('imeDefault'), imeSelect),
-        row(t('theme'), themeSelect),
-        row(t('dailyTemplate'), templateInput, t('dailyTemplateHint')),
-        row(t('installApp'), installBtn),
-        row(`${t('exportText')} / ${t('import')}`, h('div', { class: 'page-head__group' }, backupBtn, restoreBackupBtn), null, 'div'),
-        h('div', { class: 'settings__actions' }, saveBtn))));
+    h('div', { class: 'page-inner mn-columns' }, settingsRoot));
 
   container.replaceChildren(h('div', { class: 'note-view' }, head, body));
   // enhanceSelect needs a parent node to wrap the native <select>.
@@ -146,6 +152,7 @@ export function mountSettings(container) {
   return {
     destroy() {
       offInstall();
+      imeDev?.destroy();
       selectApis.forEach((api) => api.destroy?.());
     },
   };
