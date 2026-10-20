@@ -254,3 +254,112 @@ export async function backlinksForTitle(title, { excludeDocumentId = null } = {}
   }
   return out;
 }
+
+/**
+ * Build nodes and edges for the interactive Graph View.
+ * Nodes: { id, label, kind: 'doc'|'daily'|'ghost'|'tag', docId?, degree }
+ * Edges: { source, target, kind: 'wiki'|'tag'|'child' }
+ */
+export async function buildKnowledgeGraph({ includeTags = true, includeOrphans = true } = {}) {
+  const [docs, blocks, links] = await Promise.all([
+    getAll('documents'),
+    getAll('blocks'),
+    getAll('block_links'),
+  ]);
+
+  const activeDocs = docs.filter((d) => !d.deleted_at);
+  const docById = new Map(activeDocs.map((d) => [d.id, d]));
+  const docByTitle = new Map();
+  activeDocs.forEach((d) => {
+    const t = (d.title || '').trim();
+    if (t && !docByTitle.has(t)) docByTitle.set(t, d);
+  });
+
+  const blockToDoc = new Map();
+  blocks.forEach((b) => {
+    if (!b.deleted_at && docById.has(b.document_id)) {
+      blockToDoc.set(b.id, b.document_id);
+    }
+  });
+
+  const nodesMap = new Map();
+  const edgesMap = new Map();
+
+  const ensureNode = (key, props) => {
+    if (!nodesMap.has(key)) {
+      nodesMap.set(key, { id: key, degree: 0, ...props });
+    }
+    return nodesMap.get(key);
+  };
+
+  // 1. 注册所有有效文档节点及父子层级边
+  activeDocs.forEach((d) => {
+    ensureNode(`doc:${d.id}`, {
+      label: d.title || '',
+      kind: d.type === 'daily' ? 'daily' : 'doc',
+      docId: d.id,
+      docType: d.type || 'normal',
+    });
+  });
+
+  activeDocs.forEach((d) => {
+    if (d.parent_id && docById.has(d.parent_id)) {
+      const src = `doc:${d.parent_id}`;
+      const dst = `doc:${d.id}`;
+      const eKey = `${src}->${dst}:child`;
+      edgesMap.set(eKey, { source: src, target: dst, kind: 'child' });
+    }
+  });
+
+  // 2. 遍历 block_links 构建双链与标签边
+  links.forEach((row) => {
+    const srcDocId = blockToDoc.get(row.source_id);
+    if (!srcDocId) return;
+    const targetTitle = String(row.target_id || '').trim();
+    if (!targetTitle) return;
+
+    const srcKey = `doc:${srcDocId}`;
+    if (row.link_type === 'tag') {
+      if (!includeTags) return;
+      const tagKey = `tag:${targetTitle}`;
+      ensureNode(tagKey, {
+        label: `#${targetTitle}`,
+        rawTag: targetTitle,
+        kind: 'tag',
+      });
+      const eKey = `${srcKey}->${tagKey}:tag`;
+      edgesMap.set(eKey, { source: srcKey, target: tagKey, kind: 'tag' });
+    } else {
+      const targetDoc = docByTitle.get(targetTitle);
+      let dstKey;
+      if (targetDoc) {
+        if (targetDoc.id === srcDocId) return; // 忽略自环
+        dstKey = `doc:${targetDoc.id}`;
+      } else {
+        dstKey = `ghost:${targetTitle}`;
+        ensureNode(dstKey, {
+          label: targetTitle,
+          kind: 'ghost',
+        });
+      }
+      const eKey = `${srcKey}->${dstKey}:wiki`;
+      edgesMap.set(eKey, { source: srcKey, target: dstKey, kind: 'wiki' });
+    }
+  });
+
+  // 3. 统计节点度数并按需过滤孤立点
+  const edges = [...edgesMap.values()];
+  edges.forEach((e) => {
+    const s = nodesMap.get(e.source);
+    const t = nodesMap.get(e.target);
+    if (s) s.degree += 1;
+    if (t) t.degree += 1;
+  });
+
+  let nodes = [...nodesMap.values()];
+  if (!includeOrphans) {
+    nodes = nodes.filter((n) => n.degree > 0);
+  }
+
+  return { nodes, edges };
+}

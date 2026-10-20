@@ -22,6 +22,7 @@ import { closeSearch, openSearch } from './search/index.js';
 import { mountDocuments } from './pages/documents.js';
 import { mountSearch } from './pages/search.js';
 import { mountTags } from './pages/tags.js';
+import { mountGraph } from './pages/graph.js';
 import { mountTasks } from './pages/tasks.js';
 import { mountToday } from './pages/today.js';
 import { mountEditor } from './pages/editor.js';
@@ -44,6 +45,7 @@ const PAGES = {
   documents: mountDocuments,
   tasks: mountTasks,
   tags: mountTags,
+  graph: mountGraph,
   search: mountSearch,
   trash: mountTrash,
   settings: mountSettings,

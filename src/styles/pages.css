@@ -1411,3 +1411,31 @@ mark.search-mark {
     inline-size: clamp(6rem, calc(var(--app-vh) - 8rem), 12rem);
   }
 }
+
+/* ---------- Knowledge Graph View -------------------------------------- */
+
+.graph-stage {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+
+.graph-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  touch-action: none;
+}
+
+.graph-canvas:active {
+  cursor: grabbing;
+}
+
+.graph-empty {
+  position: absolute;
+  pointer-events: none;
+  writing-mode: vertical-lr;
+  font-family: var(--app-font-mongol);
+}

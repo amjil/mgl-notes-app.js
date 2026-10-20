@@ -21,6 +21,7 @@ const NAV = [
   { id: 'documents', href: '#/documents', label: () => t('documents'), icon: '▤' },
   { id: 'tasks', href: '#/tasks', label: () => t('tasks'), icon: '☑' },
   { id: 'tags', href: '#/tags', label: () => t('tags'), icon: '#' },
+  { id: 'graph', href: '#/graph', label: () => t('graph'), icon: '◎' },
   { id: 'search', href: '#/search', label: () => t('search'), icon: '⌕' },
   { id: 'trash', href: '#/trash', label: () => t('trash'), icon: '⌫' },
   { id: 'settings', href: '#/settings', label: () => t('settings'), icon: '⚙' },

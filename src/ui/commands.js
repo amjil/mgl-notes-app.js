@@ -36,6 +36,7 @@ function commands() {
     { id: 'documents', label: t('documents'), run: () => navigate('/documents') },
     { id: 'tasks', label: t('tasks'), run: () => navigate('/tasks') },
     { id: 'tags', label: t('tags'), run: () => navigate('/tags') },
+    { id: 'graph', label: t('graph'), run: () => navigate('/graph') },
     { id: 'search', label: t('search'), run: () => navigate('/search') },
     { id: 'trash', label: t('trash'), run: () => navigate('/trash') },
     { id: 'settings', label: t('settings'), run: () => navigate('/settings') },
