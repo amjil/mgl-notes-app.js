@@ -23,7 +23,6 @@ const NAV = [
   { id: 'review', href: '#/review', label: () => t('review'), icon: '🗂' },
   { id: 'tags', href: '#/tags', label: () => t('tags'), icon: '#' },
   { id: 'graph', href: '#/graph', label: () => t('graph'), icon: '◎' },
-  { id: 'search', href: '#/search', label: () => t('search'), icon: '⌕' },
   { id: 'trash', href: '#/trash', label: () => t('trash'), icon: '⌫' },
   { id: 'settings', href: '#/settings', label: () => t('settings'), icon: '⚙' },
 ];

@@ -20,7 +20,6 @@ import { installCommandShortcuts } from './ui/commands.js';
 import { mountLogin } from './pages/login.js';
 import { closeSearch, openSearch } from './search/index.js';
 import { mountDocuments } from './pages/documents.js';
-import { mountSearch } from './pages/search.js';
 import { mountTags } from './pages/tags.js';
 import { mountGraph } from './pages/graph.js';
 import { mountTasks } from './pages/tasks.js';
@@ -48,7 +47,7 @@ const PAGES = {
   review: mountReview,
   tags: mountTags,
   graph: mountGraph,
-  search: mountSearch,
+  search: mountDocuments,
   trash: mountTrash,
   settings: mountSettings,
   doc: mountEditor,
@@ -141,7 +140,7 @@ async function render(route) {
     navigate('/today', { replace: true });
     return;
   }
-  shell.setActive(route.name === 'doc' ? 'documents' : route.name);
+  shell.setActive(route.name === 'doc' || route.name === 'search' ? 'documents' : route.name);
   const host = document.createElement('div');
   host.className = 'app-page';
   shell.main.replaceChildren(host);

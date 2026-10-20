@@ -399,6 +399,61 @@
   box-shadow: 0 0 0 3px var(--app-gold-soft);
 }
 
+.page-head__title-block {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.35rem;
+}
+
+.page-head__search-float {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.35rem;
+  z-index: var(--z-popover, 20);
+  padding: 0.45rem;
+  border-radius: 0.85rem;
+  border: 1px solid var(--app-line);
+  background: var(--app-bg);
+  box-shadow: 0 10px 28px color-mix(in srgb, #000 14%, transparent);
+}
+
+.page-head__search-float[hidden] {
+  display: none !important;
+}
+
+.page-head__search-input.search-input.mn-input {
+  inline-size: clamp(7rem, calc(var(--app-vh) - var(--app-ime-kb) - 14rem), 18rem);
+  block-size: 2.5rem;
+}
+
+.page-head__search-close {
+  flex: 0 0 auto;
+  padding: 0.35rem 0.5rem;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.page-head__search-btn {
+  flex: 0 0 auto;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0.45rem 0.55rem;
+}
+
+.page-head__search-btn.is-active {
+  color: var(--app-accent);
+  background: var(--app-accent-soft);
+}
+
+/* Search popover stays in-flow; head keeps scrolling instead of squashing controls. */
+.note-view__head.is-search-open {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
 .search-card {
   block-size: auto;
   min-block-size: 3.6rem;
@@ -527,12 +582,43 @@ mark.search-mark {
   display: flex;
   flex-direction: row; /* top → bottom */
   align-items: center;
+  justify-content: center;
+  justify-content: safe center;
   gap: 0.75rem;
   padding: 1.25rem 0.75rem;
   border-right: 1px solid var(--app-line);
   background: color-mix(in srgb, var(--app-bg-2) 60%, transparent);
   overflow-y: auto;
   overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Do not shrink sidebar controls to fit the viewport — scroll instead. */
+.note-view__head > .btn,
+.note-view__head > .page-head__title-block,
+.note-view__head > .page-head__group,
+.note-view__head > .app-menu-btn,
+.note-view__head > .note-more,
+.note-view__head > a.btn {
+  flex: 0 0 auto;
+  flex-shrink: 0;
+}
+
+.note-view__head .btn {
+  white-space: nowrap;
+}
+
+.note-view__head .page-head__group {
+  flex: 0 0 auto;
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+}
+
+.note-view__head .page-head__title-block {
+  flex: 0 0 auto;
+  flex-shrink: 0;
+  align-self: center;
 }
 
 /* Let the more menu paint outside the head column. */

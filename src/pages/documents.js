@@ -8,9 +8,12 @@ import { pickAndImportDocument } from '../services/export.js';
 import { on } from '../events.js';
 import { navigate } from '../router.js';
 import { t } from '../i18n.js';
+import { attachFieldIme } from '../ime/index.js';
+import { searchNotes } from '../search/index.js';
+import { appendHighlighted } from '../search/text.js';
 import { confirmDialog } from '../ui/confirm.js';
 import { toast } from '../ui/toast.js';
-import { h } from '../util.js';
+import { debounce, h } from '../util.js';
 
 const FILTERS = [
   { id: '', label: () => t('all') },
@@ -23,6 +26,17 @@ function shortDate(iso) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function stripHashQueryParam(key) {
+  const raw = location.hash.replace(/^#/, '') || '/today';
+  const [pathPart, queryPart = ''] = raw.split('?');
+  const params = new URLSearchParams(queryPart);
+  if (!params.has(key)) return;
+  params.delete(key);
+  const qs = params.toString();
+  const next = qs ? `${pathPart}?${qs}` : pathPart;
+  history.replaceState(null, '', `#${next.startsWith('/') ? next : `/${next}`}`);
 }
 
 /** Documents list: forest by parent_id; columns run left → right. */
@@ -79,8 +93,81 @@ export function mountDocuments(container, { query = {} } = {}) {
 
   const batchBar = h('div', { class: 'batch-bar', hidden: true });
 
-  const head = h('header', { class: 'note-view__head' },
+  const searchInput = h('input', {
+    class: 'mn-input search-input page-head__search-input',
+    type: 'text',
+    value: query.q || '',
+    placeholder: t('searchPlaceholder'),
+    'aria-label': t('search'),
+    spellcheck: 'false',
+    lang: 'mn-Mong',
+    autocomplete: 'off',
+  });
+
+  const searchCloseBtn = h('button', {
+    type: 'button',
+    class: 'btn btn--ghost page-head__search-close',
+    title: t('cancel'),
+    'aria-label': t('cancel'),
+    onclick: () => closeSearchPanel(),
+  }, '✕');
+
+  const searchFloat = h('div', {
+    class: 'page-head__search-float',
+    hidden: true,
+    role: 'search',
+  }, searchInput, searchCloseBtn);
+
+  let searchOpen = false;
+  /** @type {HTMLButtonElement | null} */
+  let searchToggleBtn = null;
+
+  function syncSearchToggle() {
+    if (!searchToggleBtn) return;
+    searchToggleBtn.classList.toggle('is-active', searchOpen);
+    searchToggleBtn.setAttribute('aria-expanded', searchOpen ? 'true' : 'false');
+  }
+
+  function openSearchPanel() {
+    searchOpen = true;
+    searchFloat.hidden = false;
+    head.classList.add('is-search-open');
+    syncSearchToggle();
+    requestAnimationFrame(() => searchInput.focus());
+  }
+
+  function closeSearchPanel() {
+    if (!searchOpen && !searchInput.value.trim()) return;
+    searchOpen = false;
+    searchFloat.hidden = true;
+    head.classList.remove('is-search-open');
+    syncSearchToggle();
+    const hadQuery = searchInput.value.trim();
+    searchInput.value = '';
+    stripHashQueryParam('search');
+    stripHashQueryParam('q');
+    if (hadQuery) void render();
+  }
+
+  searchToggleBtn = h('button', {
+    type: 'button',
+    class: 'btn btn--ghost page-head__search-btn',
+    title: t('search'),
+    'aria-label': t('search'),
+    'aria-expanded': 'false',
+    onclick: () => {
+      if (searchOpen) closeSearchPanel();
+      else openSearchPanel();
+    },
+  }, '⌕');
+
+  const titleBlock = h('div', { class: 'page-head__title-block' },
     h('h1', { class: 'page-head__title' }, t('documents')),
+    searchFloat);
+
+  const head = h('header', { class: 'note-view__head' },
+    titleBlock,
+    searchToggleBtn,
     newBtn,
     importBtn,
     selectBtn,
@@ -89,6 +176,9 @@ export function mountDocuments(container, { query = {} } = {}) {
   const body = h('section', { class: 'page mn-surface note-view__body' },
     h('div', { class: 'page-inner mn-columns' }, list));
   container.replaceChildren(h('div', { class: 'note-view' }, head, body), batchBar);
+
+  const ime = attachFieldIme(searchInput);
+  let searchSeq = 0;
 
   function syncBatchBar() {
     const n = selected.size;
@@ -132,6 +222,30 @@ export function mountDocuments(container, { query = {} } = {}) {
   function toggleSelect(id) {
     if (selected.has(id)) selected.delete(id);
     else selected.add(id);
+  }
+
+  function renderSearchHit(hit, q) {
+    const isDaily = hit.type === 'daily';
+    const title = hit.title || t('untitled');
+    const href = isDaily
+      ? `#/today/${encodeURIComponent(hit.title)}`
+      : `#/doc/${hit.id}`;
+
+    const titleEl = h('span', { class: `doc-card__title${hit.title ? '' : ' is-untitled'}` });
+    if (hit.title) appendHighlighted(titleEl, title, q);
+    else titleEl.textContent = title;
+
+    let snippetEl = null;
+    if (hit.snippet) {
+      snippetEl = h('span', { class: 'search-card__snippet' });
+      appendHighlighted(snippetEl, hit.snippet, q);
+    }
+
+    return h('article', { class: `doc-card search-card${isDaily ? ' doc-card--daily' : ''}` },
+      h('a', { class: 'doc-card__open search-card__open', href },
+        titleEl,
+        snippetEl,
+        h('span', { class: 'doc-card__meta mn-upright' }, shortDate(hit.edited_at || hit.updated_at))));
   }
 
   function renderCard(doc, { toggle = null } = {}) {
@@ -226,7 +340,24 @@ export function mountDocuments(container, { query = {} } = {}) {
   }
 
   async function render() {
+    const q = searchInput.value.trim();
+    const token = ++searchSeq;
+
+    if (q) {
+      batchBar.hidden = true;
+      const hits = await searchNotes(q);
+      if (token !== searchSeq) return;
+      const filteredHits = type ? hits.filter((d) => (d.type || 'normal') === type) : hits;
+      if (!filteredHits.length) {
+        list.replaceChildren(h('p', { class: 'doc-list__empty' }, t('noResults')));
+        return;
+      }
+      list.replaceChildren(...filteredHits.map((hit) => renderSearchHit(hit, q)));
+      return;
+    }
+
     docsCache = await listDocuments({ type: type || null });
+    if (token !== searchSeq) return;
     syncBatchBar();
     if (!docsCache.length) {
       list.replaceChildren(h('p', { class: 'doc-list__empty' }, t('empty')));
@@ -236,12 +367,28 @@ export function mountDocuments(container, { query = {} } = {}) {
     list.replaceChildren(...forest.map(renderNode));
   }
 
+  const onSearchInput = debounce(render, 180);
+  searchInput.addEventListener('input', onSearchInput);
+
+  const onKeyDown = (e) => {
+    if (e.key === 'Escape' && searchOpen) {
+      e.preventDefault();
+      closeSearchPanel();
+    }
+  };
+  document.addEventListener('keydown', onKeyDown);
+
   const off = on('documents-changed', render);
+
+  if (query.search === '1' || query.q) openSearchPanel();
   render();
 
   return {
     destroy() {
       off();
+      document.removeEventListener('keydown', onKeyDown);
+      onSearchInput.cancel();
+      ime.destroy();
     },
   };
 }

@@ -76,6 +76,14 @@ body.mgl-ime-mobile-open .app-shell.mn-shell {
   background: var(--app-accent-soft);
 }
 
+button.app-rail__link {
+  border: none;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  width: 100%;
+}
+
 .app-rail__icon {
   font-size: 18px;
   line-height: 1;
