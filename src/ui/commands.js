@@ -5,6 +5,7 @@
 import { portal } from 'mgl-common-ui';
 import { h } from '../util.js';
 import { t } from '../i18n.js';
+import { setTheme, theme } from '../prefs.js';
 import { navigate } from '../router.js';
 import { syncNow } from '../sync/sync.js';
 import { attachFieldIme, toggleImeMode } from '../ime/index.js';
@@ -13,6 +14,8 @@ import { pickAndImportDocument } from '../services/export.js';
 import { searchNotes } from '../search/index.js';
 import { canInstall, promptInstall } from '../pwa.js';
 import { toast } from './toast.js';
+
+const THEME_CYCLE = ['auto', 'light', 'dark'];
 
 let open = false;
 let host = null;
@@ -60,6 +63,16 @@ function commands() {
     },
     { id: 'sync', label: t('sync'), run: () => syncNow() },
     { id: 'ime', label: t('imeToggle'), run: () => toggleImeMode() },
+    {
+      id: 'theme',
+      label: t('theme'),
+      run: () => {
+        const cur = theme();
+        const next = THEME_CYCLE[(THEME_CYCLE.indexOf(cur) + 1) % THEME_CYCLE.length];
+        setTheme(next);
+        toast(next === 'auto' ? t('all') : next === 'light' ? '☀ Light' : '☾ Dark');
+      },
+    },
   ];
   if (canInstall()) {
     list.push({ id: 'install', label: t('installApp'), run: () => promptInstall() });

@@ -7,6 +7,8 @@ import { setImeMode, imeMode } from './ime/index.js';
 const FONT_KEY = 'mgl.fontScale';
 const IME_KEY = 'mgl.imeDefault';
 const DAILY_TEMPLATE_KEY = 'mgl.dailyTemplate';
+const THEME_KEY = 'mgl.theme'; // 'auto' | 'light' | 'dark'
+const darkMq = globalThis.matchMedia?.('(prefers-color-scheme: dark)');
 
 export function fontScale() {
   const n = Number(localStorage.getItem(FONT_KEY));
@@ -61,8 +63,30 @@ export function dailyTemplateLines() {
   return raw.split('\n');
 }
 
+export function theme() {
+  const v = localStorage.getItem(THEME_KEY);
+  return v === 'light' || v === 'dark' || v === 'auto' ? v : 'auto';
+}
+
+export function setTheme(mode) {
+  const next = mode === 'light' || mode === 'dark' ? mode : 'auto';
+  localStorage.setItem(THEME_KEY, next);
+  applyTheme(next);
+  return next;
+}
+
+export function applyTheme(mode = theme()) {
+  const isDark = mode === 'dark' || (mode === 'auto' && Boolean(darkMq?.matches));
+  document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
+}
+
+darkMq?.addEventListener?.('change', () => {
+  if (theme() === 'auto') applyTheme('auto');
+});
+
 export function applyPrefs() {
   applyLocale();
   applyFontScale();
+  applyTheme();
   setImeMode(imeDefault());
 }

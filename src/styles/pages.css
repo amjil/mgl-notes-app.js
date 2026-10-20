@@ -385,7 +385,7 @@
   padding: 0.55rem;
   border: 1px solid var(--app-line);
   border-radius: 0.7rem;
-  background: #fff;
+  background: var(--app-bg-2);
   color: var(--app-text);
   font-family: var(--app-font-mongol);
   font-size: 18px;
@@ -1342,7 +1342,7 @@ mark.search-mark {
   padding: 0.55rem;
   border: 1px solid var(--app-line);
   border-radius: 0.7rem;
-  background: #fff;
+  background: var(--app-bg-2);
   color: var(--app-text);
   box-sizing: border-box;
 }

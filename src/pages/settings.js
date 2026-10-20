@@ -8,6 +8,8 @@ import {
   setDailyTemplate,
   setFontScale,
   setImeDefault,
+  setTheme,
+  theme,
 } from '../prefs.js';
 import { canInstall, onInstallAvailable, promptInstall } from '../pwa.js';
 import { exportAllBackup, pickAndRestoreBackup } from '../services/export.js';
@@ -38,6 +40,11 @@ export function mountSettings(container) {
   const langSelect = h('select', { class: 'mn-select settings__select' },
     h('option', { value: 'mn', selected: locale() === 'mn' }, t('langMn')),
     h('option', { value: 'en', selected: locale() === 'en' }, t('langEn')));
+
+  const themeSelect = h('select', { class: 'mn-select settings__select' },
+    h('option', { value: 'auto', selected: theme() === 'auto' }, t('all')),
+    h('option', { value: 'light', selected: theme() === 'light' }, '☀ Light'),
+    h('option', { value: 'dark', selected: theme() === 'dark' }, '☾ Dark'));
 
   const templateInput = h('textarea', {
     class: 'mn-input settings__textarea',
@@ -98,6 +105,7 @@ export function mountSettings(container) {
       setApiBase(serverInput.value);
       setFontScale(fontSelect.value);
       setImeDefault(imeSelect.value);
+      setTheme(themeSelect.value);
       setDailyTemplate(templateInput.value);
       setLocale(langSelect.value);
       toast(t('settingsSaved'));
@@ -120,6 +128,7 @@ export function mountSettings(container) {
         row(t('server'), serverInput),
         row(t('fontSize'), fontSelect),
         row(t('imeDefault'), imeSelect),
+        row(t('theme'), themeSelect),
         row(t('dailyTemplate'), templateInput, t('dailyTemplateHint')),
         row(t('installApp'), installBtn),
         row(`${t('exportText')} / ${t('import')}`, h('div', { class: 'page-head__group' }, backupBtn, restoreBackupBtn), null, 'div'),
@@ -131,6 +140,7 @@ export function mountSettings(container) {
     enhanceSelect(fontSelect),
     enhanceSelect(imeSelect),
     enhanceSelect(langSelect),
+    enhanceSelect(themeSelect),
   );
 
   return {
