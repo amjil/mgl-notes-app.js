@@ -18,6 +18,7 @@ const CSS = `
   border-radius: 0.75rem;
   background: color-mix(in srgb, var(--mn-surface, #fff) 92%, rgba(47, 125, 95, 0.05));
   font-family: var(--app-font-mongol);
+  min-inline-size: 24rem;
   max-block-size: 100%;
   box-sizing: border-box;
 }
@@ -26,7 +27,8 @@ const CSS = `
   flex-direction: row;
   align-items: stretch;
   gap: 0.35rem;
-  min-block-size: 2.2rem;
+  min-inline-size: 11rem;
+  min-block-size: 3rem;
 }
 .mgl-editor-scope .mgl-flashcard__badge {
   writing-mode: horizontal-tb;
@@ -45,9 +47,9 @@ const CSS = `
 }
 .mgl-editor-scope .mgl-flashcard__field {
   flex: 1 1 auto;
-  min-inline-size: 4rem;
-  min-block-size: 1.8rem;
-  padding: 0.25rem 0.2rem;
+  min-inline-size: 10rem;
+  min-block-size: 2.75rem;
+  padding: 0.35rem 0.25rem;
   outline: none;
   border-radius: 0.35rem;
   line-height: 1.75;

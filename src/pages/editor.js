@@ -92,6 +92,37 @@ export async function mountEditor(container, { params = [], query = {} } = {}) {
 
   const backlinks = createBacklinksPanel(doc.title || '', { excludeDocumentId: id });
   const childrenEl = h('div', { class: 'note-children', hidden: true });
+  const subdocIndexEl = h('div', { class: 'note-subdoc-index', hidden: true });
+
+  /** 判断当前编辑器是否完全没有实质内容 */
+  function isEditorContentEmpty() {
+    try {
+      const tree = view?.session?.editor?.getBlocks?.() || [];
+      if (tree.length === 0) return true;
+      if (tree.length > 1) return false;
+      const first = tree[0];
+      const hasChildren = Array.isArray(first.children) && first.children.length > 0;
+      const isPlainPara = !first.type || first.type === 'paragraph';
+      const text = String(first.text || first.html || '').replace(/<[^>]*>/g, '').replace(/\u200b/g, '').trim();
+      return isPlainPara && !hasChildren && text.length === 0;
+    } catch {
+      return false;
+    }
+  }
+
+  function shortDate(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  let cachedKids = [];
+
+  function syncSubdocIndexVisibility() {
+    const showIndex = cachedKids.length > 0 && isEditorContentEmpty();
+    subdocIndexEl.hidden = !showIndex;
+  }
 
   const saveTitle = async () => {
     await updateDocumentTitle(id, input.value.trim());
@@ -217,16 +248,19 @@ export async function mountEditor(container, { params = [], query = {} } = {}) {
   }
 
   async function refreshChildren() {
-    const kids = await listChildDocuments(id);
-    if (!kids.length) {
+    cachedKids = await listChildDocuments(id);
+    if (!cachedKids.length) {
       childrenEl.hidden = true;
       childrenEl.replaceChildren();
+      subdocIndexEl.hidden = true;
+      subdocIndexEl.replaceChildren();
       return;
     }
+
     childrenEl.hidden = false;
     childrenEl.replaceChildren(
       h('span', { class: 'note-children__label' }, t('childDocuments')),
-      ...kids.map((child) => h('a', {
+      ...cachedKids.map((child) => h('a', {
         class: 'note-children__item',
         href: `#/doc/${child.id}`,
         title: child.title || t('untitled'),
@@ -240,6 +274,27 @@ export async function mountEditor(container, { params = [], query = {} } = {}) {
           navigate(`/doc/${child.id}`);
         },
       }, '＋'));
+
+    subdocIndexEl.replaceChildren(
+      h('div', { class: 'note-subdoc-index__head' },
+        h('h2', { class: 'note-subdoc-index__title' }, `${t('childDocuments')} (${cachedKids.length})`),
+        h('button', {
+          type: 'button',
+          class: 'btn btn--ghost',
+          onclick: async () => {
+            const child = await createDocument({ title: '', type: 'normal', parentId: id });
+            navigate(`/doc/${child.id}`);
+          },
+        }, `＋ ${t('newSubDocument')}`)),
+      h('div', { class: 'doc-list note-subdoc-index__list' },
+        ...cachedKids.map((child) => h('article', { class: 'doc-card' },
+          h('a', { class: 'doc-card__open', href: `#/doc/${child.id}` },
+            h('span', { class: `doc-card__title${child.title ? '' : ' is-untitled'}` },
+              child.title || t('untitled')),
+            h('span', { class: 'doc-card__meta mn-upright' },
+              shortDate(child.edited_at || child.updated_at)))))));
+
+    syncSubdocIndexVisibility();
   }
 
   const head = [
@@ -253,7 +308,11 @@ export async function mountEditor(container, { params = [], query = {} } = {}) {
   ].filter(Boolean);
 
   view = mountNoteView(container, { head, documentId: id, focusBlockId: query.block || null });
+  const editorHost = container.querySelector('.note-view__editor');
+  editorHost?.append(subdocIndexEl);
   container.querySelector('.note-view')?.append(backlinks.root);
+  const onEditorInput = () => syncSubdocIndexVisibility();
+  editorHost?.addEventListener('input', onEditorInput);
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.isComposing) {
       e.preventDefault();
@@ -261,7 +320,6 @@ export async function mountEditor(container, { params = [], query = {} } = {}) {
     }
   });
   const titleIme = attachFieldIme(input);
-  void refreshChildren();
 
   const off = on('documents-changed', async () => {
     const latest = await getDocument(id);
@@ -277,12 +335,14 @@ export async function mountEditor(container, { params = [], query = {} } = {}) {
   });
   const offLinks = on('blocks-changed', () => { void backlinks.refresh(); });
 
-  view.session.ready.then(() => {
-    if (!doc.title) input.focus();
+  view.session.ready.then(async () => {
+    await refreshChildren();
+    if (!doc.title && !cachedKids.length) input.focus();
   });
 
   return {
     async destroy() {
+      editorHost?.removeEventListener('input', onEditorInput);
       off();
       offLinks();
       backlinks.destroy?.();

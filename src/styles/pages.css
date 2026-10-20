@@ -264,6 +264,7 @@
 
 .note-view.is-reading .note-view__head .note-more,
 .note-view.is-reading .note-children,
+.note-view.is-reading .note-subdoc-index,
 .note-view.is-reading .backlinks {
   display: none;
 }
@@ -601,6 +602,51 @@ mark.search-mark {
   padding: 0.25rem;
 }
 
+/* ---------- Empty Document Sub-documents Index ------------------------ */
+
+.note-subdoc-index {
+  position: absolute;
+  inset: 3.2rem 0 0 4.5rem;
+  z-index: 5;
+  writing-mode: vertical-lr;
+  -webkit-writing-mode: vertical-lr;
+  text-orientation: mixed;
+  font-family: var(--app-font-mongol);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1.25rem;
+  padding: 1.5rem 2rem;
+  background: color-mix(in srgb, var(--app-bg) 86%, transparent);
+  backdrop-filter: blur(4px);
+  overflow-x: auto;
+  overflow-y: hidden;
+  box-sizing: border-box;
+}
+
+.note-subdoc-index[hidden] {
+  display: none !important;
+}
+
+.note-subdoc-index__head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.note-subdoc-index__title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--app-muted);
+  letter-spacing: 0.04em;
+}
+
+.note-subdoc-index__list {
+  height: min(72vh, 28rem);
+}
+
 .note-view__spacer {
   flex: 1 1 auto;
   min-inline-size: 0.5rem;
@@ -617,6 +663,7 @@ mark.search-mark {
 
 .note-view__editor,
 .note-view__body {
+  position: relative;
   flex: 1 1 auto;
   min-width: 0;
   height: 100%;
