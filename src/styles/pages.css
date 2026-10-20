@@ -1439,3 +1439,71 @@ mark.search-mark {
   writing-mode: vertical-lr;
   font-family: var(--app-font-mongol);
 }
+
+/* ---------- Spaced Repetition Review ---------------------------------- */
+
+.review-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  height: 100%;
+}
+
+.review-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1.25rem;
+  height: min(76vh, 34rem);
+  min-block-size: 16rem;
+  padding: 1.5rem 1.25rem;
+  border: 1px solid var(--app-line-strong);
+  border-radius: var(--app-radius);
+  background: color-mix(in srgb, var(--app-bg-2) 94%, transparent);
+  box-shadow: var(--app-shadow);
+  box-sizing: border-box;
+}
+
+.review-card__source {
+  font-size: 13px;
+  color: var(--app-muted);
+  text-decoration: none;
+}
+
+.review-card__source:hover {
+  color: var(--app-accent);
+}
+
+.review-card__front {
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.8;
+  padding-inline-end: 1rem;
+  border-inline-end: 1px dashed var(--app-line-strong);
+}
+
+.review-card__back {
+  font-size: 19px;
+  line-height: 1.8;
+  color: var(--app-accent);
+  flex: 1 1 auto;
+}
+
+.review-card__grades {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.review-grade-btn__days {
+  font-family: var(--app-font-ui);
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+.review-done {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1rem;
+}

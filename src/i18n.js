@@ -124,7 +124,17 @@ const MN = {
   "dailyTemplate": "ᠡᠳᠦᠷ ᠦᠨ ᠵᠠᠭᠪᠤᠷ",
   "dailyTemplateHint": "ᠮᠥᠷ ᠪᠦᠷᠢ ᠳᠦ ᠨᠢᠭᠡ ᠴᠣᠭᠴᠠ ᠮᠥᠷ. ᠰᠢᠨ᠎ᠡ ᠡᠳᠦᠷ ᠦᠨ ᠲᠡᠮᠳᠡᠭᠯᠡᠯ ᠡᠬᠢᠯᠡᠬᠦ ᠳᠦ ᠬᠡᠷᠡᠭᠯᠡᠨ᠎ᠡ.",
   "openDocument": "ᠨᠡᠭᠡᠭᠡᠬᠦ",
-  "recentDocuments": "ᠰᠠᠶᠢᠬᠠᠨ ᠤ"
+  "recentDocuments": "ᠰᠠᠶᠢᠬᠠᠨ ᠤ",
+  "review": "ᠳᠠᠪᠲᠠᠬᠤ",
+  "fcFrontPlaceholder": "ᠠᠰᠠᠭᠤᠯᠲᠠ…",
+  "fcBackPlaceholder": "ᠬᠠᠷᠢᠭᠤᠯᠲᠠ…",
+  "reviewShowAnswer": "ᠬᠠᠷᠢᠭᠤ ᠬᠠᠷᠠᠬᠤ",
+  "reviewDone": "ᠥᠨᠦᠳᠦᠷ ᠦᠨ ᠳᠠᠪᠲᠠᠯᠭ᠎ᠠ ᠳᠠᠭᠤᠰᠪᠠ",
+  "reviewAll": "ᠪᠦᠬᠦ ᠬᠠᠢᠷᠴᠠᠭ ᠳᠠᠪᠲᠠᠬᠤ",
+  "gradeAgain": "ᠳᠠᠬᠢᠬᠤ",
+  "gradeHard": "ᠪᠡᠷᠬᠡ",
+  "gradeGood": "ᠰᠠᠶᠢᠨ",
+  "gradeEasy": "ᠠᠮᠠᠷ"
 };
 
 const EN = {
@@ -245,7 +255,17 @@ const EN = {
   "dailyTemplate": "Daily template",
   "dailyTemplateHint": "One paragraph per line. Applied when a new daily note is created.",
   "openDocument": "Open",
-  "recentDocuments": "Recent"
+  "recentDocuments": "Recent",
+  "review": "Review",
+  "fcFrontPlaceholder": "Question / Front…",
+  "fcBackPlaceholder": "Answer / Back…",
+  "reviewShowAnswer": "Show answer",
+  "reviewDone": "All caught up for today!",
+  "reviewAll": "Practice all cards",
+  "gradeAgain": "Again",
+  "gradeHard": "Hard",
+  "gradeGood": "Good",
+  "gradeEasy": "Easy"
 };
 
 const DICTS = { mn: MN, en: EN };

@@ -28,6 +28,7 @@ import { mountToday } from './pages/today.js';
 import { mountEditor } from './pages/editor.js';
 import { mountTrash } from './pages/trash.js';
 import { mountSettings } from './pages/settings.js';
+import { mountReview } from './pages/review.js';
 import { applyPrefs } from './prefs.js';
 import { initPwa } from './pwa.js';
 
@@ -44,6 +45,7 @@ const PAGES = {
   today: mountToday,
   documents: mountDocuments,
   tasks: mountTasks,
+  review: mountReview,
   tags: mountTags,
   graph: mountGraph,
   search: mountSearch,

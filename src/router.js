@@ -4,6 +4,7 @@
  *   #/today  #/today/YYYY-MM-DD
  *   #/documents  #/documents?type=daily|normal
  *   #/tasks
+ *   #/review
  *   #/tags  #/tags/:tag
  *   #/search
  *   #/trash

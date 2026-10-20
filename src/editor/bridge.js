@@ -16,7 +16,7 @@ export const PLACEHOLDER_TYPE = 'unsupported';
 export const EDITABLE_TYPES = new Set([
   'paragraph', 'heading-1', 'heading-2', 'heading-3',
   'list-item', 'ordered-list-item', 'task', 'blockquote',
-  'callout', 'toggle', 'divider', 'table', 'image', 'bookmark',
+  'callout', 'toggle', 'divider', 'table', 'image', 'bookmark', 'flashcard',
 ]);
 
 const ATOMIC_TEXTLESS = new Set(['divider', 'table', 'image']);
@@ -112,6 +112,15 @@ export function rowToNode(row) {
     node.data = { ...(extra.data || {}) };
     node.html = '';
     node.text = row.text || node.data.title || '';
+  } else if (type === 'flashcard') {
+    const rawData = extra.data || {};
+    node.data = {
+      ...rawData,
+      front: rawData.front ?? row.text ?? '',
+      back: rawData.back ?? '',
+    };
+    node.html = '';
+    node.text = row.text || node.data.front || '';
   } else if (type === 'divider') {
     node.html = '';
   } else {
@@ -185,6 +194,8 @@ export function nodeToRow(node, parentId, orderIndex, prev, doc = globalThis.doc
     text = prev ? (prev.text || '') : '';
   } else if (type === 'bookmark') {
     text = (node.data && node.data.title) || node.text || '';
+  } else if (type === 'flashcard') {
+    text = (node.data && node.data.front) || node.text || '';
   } else {
     const rich = htmlToRich(node.html || '', doc);
     text = rich.text;
@@ -198,9 +209,9 @@ export function nodeToRow(node, parentId, orderIndex, prev, doc = globalThis.doc
     delete rest.checked;
     data = rest;
     alwaysData = true;
-  } else if (type === 'table' || type === 'image' || type === 'bookmark') {
+  } else if (type === 'table' || type === 'image' || type === 'bookmark' || type === 'flashcard') {
     data = { ...(prevData || {}), ...(node.data || {}) };
-    alwaysData = type === 'image' || type === 'bookmark';
+    alwaysData = type === 'image' || type === 'bookmark' || type === 'flashcard';
   }
 
   let dataJson = encodeExtra(data, spans, alwaysData);

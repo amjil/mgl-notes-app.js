@@ -20,6 +20,7 @@ const NAV = [
   { id: 'today', href: '#/today', label: () => t('today'), icon: '☀' },
   { id: 'documents', href: '#/documents', label: () => t('documents'), icon: '▤' },
   { id: 'tasks', href: '#/tasks', label: () => t('tasks'), icon: '☑' },
+  { id: 'review', href: '#/review', label: () => t('review'), icon: '🗂' },
   { id: 'tags', href: '#/tags', label: () => t('tags'), icon: '#' },
   { id: 'graph', href: '#/graph', label: () => t('graph'), icon: '◎' },
   { id: 'search', href: '#/search', label: () => t('search'), icon: '⌕' },

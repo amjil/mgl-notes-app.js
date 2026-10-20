@@ -11,6 +11,7 @@ import { diffRows, nextSnapshot, rowsToTree, treeToRows } from './bridge.js';
 import { createPlaceholderPlugin } from './placeholder.js';
 import { createImagePlugin, pickImageFile, setPendingImageData } from './image.js';
 import { createBookmarkPlugin, promptBookmark, setPendingBookmark } from './bookmark.js';
+import { createFlashcardPlugin } from './flashcard.js';
 import { attachAutocomplete } from './autocomplete.js';
 import { attachMarkdownShortcuts } from './markdown-shortcuts.js';
 import { attachSelectionToolbar } from './selection-toolbar.js';
@@ -30,7 +31,12 @@ export function createEditorSession(host, documentId, { focusBlockId = null } = 
   host.classList.add('note-editor');
   const editor = createBlockEditor(host, {
     mode: 'notes',
-    plugins: [createPlaceholderPlugin(), createImagePlugin(), createBookmarkPlugin()],
+    plugins: [
+      createPlaceholderPlugin(),
+      createImagePlugin(),
+      createBookmarkPlugin(),
+      createFlashcardPlugin(),
+    ],
     onChange: () => {
       if (decorating) return;
       markDirty();
@@ -355,11 +361,14 @@ export function createEditorSession(host, documentId, { focusBlockId = null } = 
     host.querySelectorAll('.block-content').forEach((el) => {
       const type = el.closest('.block-wrapper')?.dataset.blockType;
       const atomic = type === 'image' || type === 'divider' || type === 'bookmark'
-        || type === 'table' || type === 'unsupported';
+        || type === 'flashcard' || type === 'table' || type === 'unsupported';
       if (atomic) {
         el.contentEditable = 'false';
         return;
       }
+      el.contentEditable = readOnly ? 'false' : 'true';
+    });
+    host.querySelectorAll('.mgl-flashcard__field').forEach((el) => {
       el.contentEditable = readOnly ? 'false' : 'true';
     });
   }
