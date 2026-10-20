@@ -1,0 +1,26 @@
+{
+  "name": "MGL Notes",
+  "short_name": "MGL Notes",
+  "description": "Traditional Mongolian notes — vertical writing, local-first sync",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f4efe4",
+  "theme_color": "#f4efe4",
+  "lang": "mn",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="MGL Notes">
+  <rect width="512" height="512" fill="#f4efe4"/>
+  <rect x="188" y="116" width="48" height="280" rx="16" fill="#2f7d5f"/>
+  <rect x="256" y="144" width="36" height="224" rx="12" fill="#1c221e" opacity="0.85"/>
+  <rect x="308" y="128" width="42" height="256" rx="14" fill="#8a6a2c"/>
+</svg>
