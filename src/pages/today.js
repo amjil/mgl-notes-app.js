@@ -128,7 +128,7 @@ export async function mountToday(container, { params = [], query = {} } = {}) {
 
   const more = h('details', { class: 'note-more' },
     h('summary', { class: 'btn btn--ghost', title: t('more') }, '⋯'),
-    h('div', { class: 'note-more__menu' },
+    h('div', { class: 'note-more__menu', dataset: { mnScrollX: '' } },
       h('button', {
         type: 'button',
         class: 'note-more__item',

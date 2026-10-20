@@ -28,14 +28,12 @@ export function mountImeUserWordDev(container) {
     spellcheck: 'false',
     lang: 'mn-Mong',
     placeholder: 'nextWords (comma or newline)',
-    inputmode: 'none',
-    virtualkeyboardpolicy: 'manual',
   });
 
   const virtual = preferVirtualIme();
   const imeOpts = { keepSelector: '.ime-dev' };
   const wordIme = attachFieldIme(wordInput, imeOpts);
-  const nextIme = virtual ? attachFieldIme(nextInput, imeOpts) : null;
+  const nextIme = attachFieldIme(nextInput, imeOpts);
 
   /** @type {(() => void) | null} */
   let blockOsKeyboard = null;
@@ -53,7 +51,7 @@ export function mountImeUserWordDev(container) {
       submitBtn.disabled = true;
       try {
         await commitPending(wordIme.ime);
-        if (nextIme) await commitPending(nextIme.ime);
+        await commitPending(nextIme.ime);
         await addUserWord({
           word: wordInput.value,
           nextWords: parseNextWordsField(nextInput.value),
@@ -84,7 +82,7 @@ export function mountImeUserWordDev(container) {
         h('span', { class: 'settings__hint settings__hint--latin' }, base),
         submitBtn)));
 
-  const head = h('header', { class: 'note-view__head' },
+  const head = h('header', { class: 'note-view__head', dataset: { mnScrollY: '' } },
     h('h1', { class: 'page-head__title settings__hint--latin' }, '[DEV] IME user_words'));
 
   const body = h('section', { class: 'page mn-surface note-view__body' },
@@ -102,7 +100,7 @@ export function mountImeUserWordDev(container) {
     destroy() {
       offNext();
       wordIme.destroy();
-      nextIme?.destroy();
+      nextIme.destroy();
     },
   };
 }

@@ -118,7 +118,7 @@ export function mountSettings(container) {
       control,
       hint ? h('span', { class: 'settings__hint' }, hint) : null));
 
-  const head = h('header', { class: 'note-view__head' },
+  const head = h('header', { class: 'note-view__head', dataset: { mnScrollY: '' } },
     h('h1', { class: 'page-head__title' }, t('settings')));
 
   const body = h('section', { class: 'page mn-surface note-view__body' },

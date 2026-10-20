@@ -69,7 +69,7 @@ export function mountTags(container, { params = [] } = {}) {
     autocomplete: 'off',
   });
 
-  const head = h('header', { class: 'note-view__head' }, title, back, filterInput);
+  const head = h('header', { class: 'note-view__head', dataset: { mnScrollY: '' } }, title, back, filterInput);
 
   const body = h('section', { class: 'page mn-surface note-view__body' },
     h('div', { class: 'page-inner mn-columns' }, list));

@@ -8,7 +8,7 @@ import { h } from '../util.js';
 export function mountNoteView(container, { head, documentId, focusBlockId = null } = {}) {
   const editorHost = h('div', { class: 'note-view__editor' });
   const view = h('section', { class: 'note-view' },
-    h('header', { class: 'note-view__head' }, head),
+    h('header', { class: 'note-view__head', dataset: { mnScrollY: '' } }, head),
     editorHost);
   container.replaceChildren(view);
 

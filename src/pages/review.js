@@ -15,7 +15,7 @@ export function mountReview(container) {
   const progressEl = h('span', { class: 'note-date mn-upright' }, '0 / 0');
   const stage = h('div', { class: 'review-stage' });
 
-  const head = h('header', { class: 'note-view__head' },
+  const head = h('header', { class: 'note-view__head', dataset: { mnScrollY: '' } },
     h('h1', { class: 'page-head__title' }, t('review')),
     progressEl);
 

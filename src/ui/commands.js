@@ -131,7 +131,7 @@ export function openCommandPalette() {
     spellcheck: 'false',
     lang: 'mn-Mong',
   });
-  const listEl = h('div', { class: 'cmd-palette__list', role: 'listbox' });
+  const listEl = h('div', { class: 'cmd-palette__list', role: 'listbox', dataset: { mnScrollX: '' } });
   const panel = h('div', { class: 'cmd-palette', role: 'dialog', 'aria-label': t('commands') },
     input, listEl);
   panel.addEventListener('click', (e) => e.stopPropagation());

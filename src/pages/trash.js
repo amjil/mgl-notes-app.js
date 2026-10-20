@@ -36,7 +36,7 @@ export function mountTrash(container) {
 
   const batchBar = h('div', { class: 'batch-bar', hidden: true });
 
-  const head = h('header', { class: 'note-view__head' },
+  const head = h('header', { class: 'note-view__head', dataset: { mnScrollY: '' } },
     h('h1', { class: 'page-head__title' }, t('trash')),
     selectBtn);
 

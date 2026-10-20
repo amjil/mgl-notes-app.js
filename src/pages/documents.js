@@ -165,7 +165,7 @@ export function mountDocuments(container, { query = {} } = {}) {
     h('h1', { class: 'page-head__title' }, t('documents')),
     searchFloat);
 
-  const head = h('header', { class: 'note-view__head' },
+  const head = h('header', { class: 'note-view__head', dataset: { mnScrollY: '' } },
     titleBlock,
     searchToggleBtn,
     newBtn,
