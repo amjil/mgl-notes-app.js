@@ -287,6 +287,39 @@ export function createEditorSession(host, documentId, { focusBlockId = null } = 
   };
   host.addEventListener('keydown', onTableKeyDown);
 
+  const onBlockMoveKey = (e) => {
+    if (readOnly || !e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return;
+    const node = sel.anchorNode;
+    const el = node?.nodeType === 1 ? node : node?.parentElement;
+    const wrapper = el?.closest?.('.block-wrapper');
+    if (!wrapper || !host.contains(wrapper)) return;
+
+    const parent = wrapper.parentNode;
+    if (!parent) return;
+
+    const targetSibling = e.key === 'ArrowLeft'
+      ? wrapper.previousElementSibling
+      : wrapper.nextElementSibling;
+    if (!targetSibling || !targetSibling.classList.contains('block-wrapper')) return;
+
+    e.preventDefault();
+    if (e.key === 'ArrowLeft') {
+      parent.insertBefore(wrapper, targetSibling);
+    } else {
+      parent.insertBefore(targetSibling, wrapper);
+    }
+
+    // 恢复光标焦点并标记为脏数据以触发持久化
+    const editable = wrapper.querySelector('.block-content[contenteditable="true"], .toggle-title');
+    editable?.focus({ preventScroll: true });
+    markDirty();
+  };
+  host.addEventListener('keydown', onBlockMoveKey);
+
   decorateToolbar(host, editor, insertImageFromFile);
 
   const offPull = onBeforePull(() => flush());
@@ -352,6 +385,7 @@ export function createEditorSession(host, documentId, { focusBlockId = null } = 
       host.removeEventListener('dragover', onDragOver);
       host.removeEventListener('drop', onDrop);
       host.removeEventListener('keydown', onTableKeyDown);
+      host.removeEventListener('keydown', onBlockMoveKey);
       window.removeEventListener('pointerdown', onPointerDown, true);
       window.removeEventListener('pointerup', onPointerUp, true);
       window.removeEventListener('pointercancel', onPointerUp, true);
