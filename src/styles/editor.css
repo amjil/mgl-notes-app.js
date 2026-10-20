@@ -231,6 +231,39 @@
   flex: 1 1 auto;
 }
 
+/* Multi-block selection bar & highlight */
+.block-sel-bar {
+  left: 50%;
+  top: calc(env(safe-area-inset-top, 0px) + 0.55rem);
+  transform: translateX(-50%);
+  flex-wrap: wrap;
+  max-width: min(36rem, calc(100vw - 1.5rem));
+}
+
+.block-sel-bar__count {
+  min-width: 1.75rem;
+  padding: 0 0.35rem;
+  font: 600 13px/1 var(--app-font-ui);
+  color: var(--app-muted);
+  text-align: center;
+}
+
+.block-sel-bar__danger:hover {
+  background: color-mix(in srgb, var(--app-danger, #c44) 18%, transparent);
+  color: var(--app-danger, #c44);
+}
+
+.note-editor .block-wrapper.is-block-selected {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+  border-radius: 0.35rem;
+}
+
+.note-editor.has-block-selection .block-wrapper.is-block-selected .block-content {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 /* Folded blocks (Cmd/Ctrl+.) show a hint where the children were. */
 .note-editor .mgl-editor-scope .block-wrapper[data-collapsed="true"]:not([data-block-type="toggle"]) > .block-content::after {
   content: " …";
@@ -241,4 +274,43 @@
   .note-editor .mgl-editor-scope .toolbar button {
     min-height: 36px;
   }
+}
+
+/* ---------- Multi-block selection highlight & floating bar ------------ */
+
+.note-editor.has-block-selection .editor-content {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.note-editor .mgl-editor-scope .block-wrapper.is-block-selected {
+  background: var(--app-accent-soft);
+  outline: 1.5px solid color-mix(in srgb, var(--app-accent) 55%, transparent);
+  border-radius: 0.45rem;
+}
+
+.block-sel-bar {
+  left: 50%;
+  top: auto;
+  bottom: calc(var(--app-ime-kb) + env(safe-area-inset-bottom, 0px) + 1rem);
+  transform: translateX(-50%);
+  gap: 0.45rem;
+  padding: 0.35rem 0.55rem;
+  border-color: var(--app-line-strong);
+}
+
+.block-sel-bar__count {
+  font: 700 12px/1 var(--app-font-ui);
+  padding: 0.25rem 0.45rem;
+  border-radius: 999px;
+  background: var(--app-accent);
+  color: #fff;
+}
+
+.block-sel-bar__danger {
+  color: var(--app-danger) !important;
+}
+
+.block-sel-bar__danger:hover {
+  background: rgba(179, 58, 43, 0.12) !important;
 }

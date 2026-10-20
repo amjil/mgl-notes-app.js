@@ -14,6 +14,7 @@ import { createBookmarkPlugin, promptBookmark, setPendingBookmark } from './book
 import { attachAutocomplete } from './autocomplete.js';
 import { attachMarkdownShortcuts } from './markdown-shortcuts.js';
 import { attachSelectionToolbar } from './selection-toolbar.js';
+import { attachBlockSelection } from './block-selection.js';
 import { decorateHost, hydrateBlockRefTitles, WIKI_SEL } from './wiki.js';
 import { attachEditorIme, commitPending } from '../ime/index.js';
 import { onBeforePull } from '../sync/sync.js';
@@ -46,11 +47,19 @@ export function createEditorSession(host, documentId, { focusBlockId = null } = 
   let pendingFocus = focusBlockId || null;
 
   const imeHandle = attachEditorIme(host, editor, {
-    keepSelector: '.note-editor .toolbar, .wiki-ac, .sel-toolbar',
+    keepSelector: '.note-editor .toolbar, .wiki-ac, .sel-toolbar, .block-sel-bar',
   });
   const ac = attachAutocomplete(host);
   const md = attachMarkdownShortcuts(host, editor);
   const selBar = attachSelectionToolbar(host, { isReadOnly: () => readOnly });
+  const blockSel = attachBlockSelection(host, editor, {
+    isReadOnly: () => readOnly,
+    onMutate: () => {
+      markDirty();
+      scheduleDecorate();
+      imeHandle.refresh();
+    },
+  });
   let pointerDown = false;
   let decorating = false;
 
@@ -339,7 +348,10 @@ export function createEditorSession(host, documentId, { focusBlockId = null } = 
     host.classList.toggle('is-readonly', readOnly);
     const toolbar = host.querySelector('.toolbar');
     if (toolbar) toolbar.hidden = readOnly;
-    if (readOnly) selBar.hide();
+    if (readOnly) {
+      selBar.hide();
+      blockSel.clear();
+    }
     host.querySelectorAll('.block-content').forEach((el) => {
       const type = el.closest('.block-wrapper')?.dataset.blockType;
       const atomic = type === 'image' || type === 'divider' || type === 'bookmark'
@@ -394,6 +406,7 @@ export function createEditorSession(host, documentId, { focusBlockId = null } = 
       ac.destroy();
       md.destroy();
       selBar.destroy();
+      blockSel.destroy();
       imeHandle.destroy();
       host.replaceChildren();
     },
