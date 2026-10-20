@@ -1,0 +1,247 @@
+/* App shell (xamt-style): the rail stays horizontal-tb with vertical labels;
+   pages flip their own reading surface to vertical-lr. */
+
+.app-shell.mn-shell {
+  height: calc(var(--app-vh) - var(--app-ime-kb));
+  background: transparent;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+  box-sizing: border-box;
+}
+
+body.mgl-ime-mobile-open .app-shell.mn-shell {
+  padding-bottom: 0;
+}
+
+.app-rail.mn-rail {
+  flex: 0 0 var(--app-rail-w);
+  width: var(--app-rail-w);
+  padding: 1.1rem 0 1rem;
+  gap: 0.85rem;
+  border-right: 1px solid var(--app-line);
+  background: color-mix(in srgb, var(--app-bg-2) 78%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  z-index: var(--z-drawer);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.app-rail__brand {
+  width: 2.6rem;
+  height: 2.6rem;
+  display: grid;
+  place-items: center;
+  border-radius: 0.85rem;
+  background: var(--app-accent);
+  color: #fff;
+  font-family: var(--app-font-mongol);
+  font-size: 22px;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--app-accent) 35%, transparent);
+}
+
+.app-rail__rule {
+  width: 1.6rem;
+  height: 1px;
+  flex: 0 0 auto;
+  background: linear-gradient(90deg, transparent, var(--app-line-strong), transparent);
+}
+
+.app-rail__links {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  flex: 1 1 auto;
+}
+
+.app-rail__link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.7rem 0.5rem;
+  border-radius: 0.8rem;
+  color: var(--app-muted);
+  text-decoration: none;
+  transition: color 160ms ease, background-color 160ms ease;
+}
+
+.app-rail__link:hover {
+  color: var(--app-text);
+  background: var(--app-gold-soft);
+}
+
+.app-rail__link.is-active {
+  color: var(--app-accent);
+  background: var(--app-accent-soft);
+}
+
+.app-rail__icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.app-rail__label {
+  writing-mode: vertical-lr;
+  -webkit-writing-mode: vertical-lr;
+  text-orientation: mixed;
+  font-family: var(--app-font-mongol);
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.app-rail__foot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.app-rail__btn {
+  min-width: 2.3rem;
+  min-height: 2.3rem;
+  display: grid;
+  place-items: center;
+  padding: 0.4rem;
+  border: 1px solid transparent;
+  border-radius: 0.7rem;
+  background: transparent;
+  color: var(--app-muted);
+  cursor: pointer;
+}
+
+.app-rail__btn:hover {
+  background: var(--app-gold-soft);
+  color: var(--app-text);
+}
+
+.app-rail__ime {
+  font-family: var(--app-font-mongol);
+  font-size: 18px;
+  border-color: var(--app-line);
+}
+
+.app-rail__ime.is-latin {
+  font-family: var(--app-font-ui);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.app-sync__dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--app-line-strong);
+  transition: background-color 200ms ease;
+}
+
+.app-sync[data-status="ok"] .app-sync__dot { background: var(--app-accent); }
+.app-sync[data-status="syncing"] .app-sync__dot {
+  background: var(--app-accent-2);
+  animation: app-pulse 1s ease-in-out infinite;
+}
+.app-sync[data-status="error"] .app-sync__dot { background: var(--app-danger); }
+.app-sync[data-status="offline"] .app-sync__dot { background: #9a9a9a; }
+
+@keyframes app-pulse {
+  50% { opacity: 0.35; }
+}
+
+.app-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  position: relative;
+  overflow: hidden; /* clip; .mn-surface owns horizontal scroll */
+}
+
+.app-page {
+  height: 100%;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.app-menu-btn,
+.app-drawer-backdrop {
+  display: none;
+}
+
+/* ---------- Mobile: rail becomes a drawer ----------------------------- */
+/* Driven by .is-drawer-chrome (preferVirtualIme / same rules as IME). */
+
+.app-shell.is-drawer-chrome .app-rail.mn-rail {
+  position: fixed;
+  top: 0;
+  bottom: var(--app-ime-kb);
+  left: 0;
+  /* Out of flex flow so the editor gets the full width. */
+  flex: 0 0 0;
+  width: var(--app-rail-w);
+  transform: translateX(-100%);
+  box-shadow: var(--app-shadow);
+  padding-top: calc(1.1rem + env(safe-area-inset-top, 0px));
+  pointer-events: none;
+}
+
+.app-shell.is-drawer-chrome.is-drawer-open .app-rail.mn-rail {
+  transform: none;
+  pointer-events: auto;
+}
+
+.app-shell.is-drawer-chrome .app-drawer-backdrop {
+  display: block;
+  position: fixed;
+  inset: 0;
+  background: rgba(28, 34, 30, 0.28);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+  z-index: var(--z-drawer-backdrop);
+}
+
+.app-shell.is-drawer-chrome.is-drawer-open .app-drawer-backdrop {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.app-shell.is-drawer-chrome .app-menu-btn {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 2.4rem;
+  height: 2.4rem;
+  margin: 0;
+  border: 1px solid var(--app-line);
+  border-radius: 0.7rem;
+  background: transparent;
+  color: var(--app-muted);
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.app-shell.is-drawer-chrome .app-menu-btn:hover {
+  background: var(--app-gold-soft);
+  color: var(--app-text);
+}
+
+.app-shell.is-drawer-chrome.is-drawer-open .app-menu-btn {
+  display: none;
+}
+
+/* Editing with virtual keyboard: keep nav off-screen even if drawer was open. */
+body.mgl-ime-mobile-open .app-shell.is-drawer-chrome .app-rail.mn-rail {
+  transform: translateX(-100%);
+  pointer-events: none;
+}
+
+body.mgl-ime-mobile-open .app-shell.is-drawer-chrome .app-drawer-backdrop {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Safe area above the head column (menu sits in-flow at the top). */
+.app-shell.is-drawer-chrome .note-view__head {
+  padding-inline-start: calc(0.75rem + env(safe-area-inset-top, 0px));
+  padding-top: calc(0.75rem + env(safe-area-inset-top, 0px));
+}

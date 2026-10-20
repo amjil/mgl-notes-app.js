@@ -1,0 +1,444 @@
+/* Product tokens on top of mgl-common-ui (palette after xamt). */
+
+:root {
+  --app-font-mongol: "Oyun Qagan Tig", "Mongol Fallback", "Noto Sans Mongolian", "Mongolian Baiti",
+    "Menksoft Qagan", serif;
+  --app-font-ui: "IBM Plex Sans", "Source Sans 3", "Noto Sans", ui-sans-serif, system-ui, sans-serif;
+  --app-bg: #f4efe4;
+  --app-bg-2: #fbf7ee;
+  --app-bg-3: #e7dfcf;
+  --app-line: rgba(120, 95, 50, 0.2);
+  --app-line-strong: rgba(120, 95, 50, 0.38);
+  --app-text: #1c221e;
+  --app-muted: #5f6a5c;
+  --app-accent: #2f7d5f;
+  --app-accent-2: #8a6a2c;
+  --app-accent-soft: rgba(47, 125, 95, 0.14);
+  --app-gold-soft: rgba(138, 106, 44, 0.12);
+  --app-danger: #b33a2b;
+  --app-shadow: 0 18px 44px rgba(72, 58, 32, 0.16);
+  --app-radius: 0.95rem;
+  --app-rail-w: 4.75rem;
+  --app-ime-kb: 0px;
+  --app-vh: var(--mn-vh);
+  --app-font-scale: 1;
+
+  --mn-font-script: var(--app-font-mongol);
+  --mn-font-ui: var(--app-font-ui);
+  --mn-bg: var(--app-bg);
+  --mn-surface: var(--app-bg-2);
+  --mn-line: var(--app-line);
+  --mn-line-strong: var(--app-line-strong);
+  --mn-text: var(--app-text);
+  --mn-muted: var(--app-muted);
+  --mn-accent: var(--app-accent);
+  --mn-accent-deep: var(--app-accent-2);
+  --mn-radius: var(--app-radius);
+  --mn-rail: var(--app-rail-w);
+  --mn-field-extent: clamp(7rem, calc(var(--app-vh) - var(--app-ime-kb) - 11rem), 16rem);
+  --mgl-ime-font: var(--app-font-mongol);
+
+  --z-drawer-backdrop: 25;
+  --z-drawer: 30;
+  --z-menu: 35;
+  --z-confirm: 45;
+  --z-toast: 50;
+  color-scheme: light;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--app-bg);
+  color: var(--app-text);
+  font-family: var(--app-font-ui);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background:
+    radial-gradient(60rem 40rem at 12% -10%, #bfdac9 0%, transparent 60%),
+    radial-gradient(50rem 36rem at 110% 110%, #ead9b8 0%, transparent 55%),
+    var(--app-bg);
+}
+
+#app {
+  height: 100%;
+  font-size: calc(16px * var(--app-font-scale));
+}
+
+a {
+  color: inherit;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+/* ---------- Buttons (vertical labels inside a vertical-lr parent) ----- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.7rem 0.45rem;
+  border: 1px solid var(--app-line);
+  border-radius: 0.7rem;
+  background: var(--app-bg-2);
+  color: var(--app-text);
+  font-family: var(--app-font-mongol);
+  font-size: 15px;
+  line-height: 1.4;
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.btn:hover {
+  background: var(--app-gold-soft);
+  border-color: var(--app-line-strong);
+}
+
+.btn--primary {
+  background: var(--app-accent);
+  border-color: var(--app-accent);
+  color: #fff;
+}
+
+.btn--primary:hover {
+  background: color-mix(in srgb, var(--app-accent) 86%, #000);
+  border-color: transparent;
+}
+
+.btn--ghost {
+  background: transparent;
+}
+
+.btn--danger {
+  color: var(--app-danger);
+  background: transparent;
+}
+
+.btn--danger:hover {
+  background: rgba(179, 58, 43, 0.08);
+  border-color: rgba(179, 58, 43, 0.3);
+}
+
+.btn--danger-solid {
+  background: var(--app-danger);
+  border-color: var(--app-danger);
+  color: #fff;
+}
+
+.btn--danger-solid:hover {
+  background: color-mix(in srgb, var(--app-danger) 86%, #000);
+  border-color: transparent;
+}
+
+/* ---------- Confirm dialog -------------------------------------------- */
+
+.app-confirm-root {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-confirm);
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  box-sizing: border-box;
+  background: rgba(28, 34, 30, 0.38);
+  backdrop-filter: blur(2px);
+}
+
+.app-confirm {
+  writing-mode: vertical-lr;
+  -webkit-writing-mode: vertical-lr;
+  text-orientation: mixed;
+  font-family: var(--app-font-mongol);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1rem;
+  max-inline-size: min(70vh, 18rem);
+  max-block-size: min(90vw, 22rem);
+  padding: 1.35rem 1.1rem;
+  border: 1px solid var(--app-line);
+  border-radius: 1.1rem;
+  background: color-mix(in srgb, var(--app-bg-2) 94%, transparent);
+  box-shadow: var(--app-shadow);
+  box-sizing: border-box;
+  overflow: auto;
+}
+
+.app-confirm__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--app-text);
+}
+
+.app-confirm__body {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--app-muted);
+}
+
+.app-confirm__actions {
+  display: flex;
+  flex-direction: row;
+  gap: 0.55rem;
+  margin-block-start: 0.35rem;
+}
+
+.app-prompt__field {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+}
+
+.app-prompt__label {
+  font-size: 13px;
+  color: var(--app-muted);
+}
+
+.app-prompt__input.mn-input {
+  writing-mode: vertical-lr !important;
+  -webkit-writing-mode: vertical-lr !important;
+  text-orientation: mixed;
+  block-size: 2.6rem;
+  inline-size: clamp(8rem, 36vh, 15rem);
+  padding: 0.5rem;
+  border: 1px solid var(--app-line-strong);
+  border-radius: 0.6rem;
+  background: #fff;
+  color: var(--app-text);
+  font-family: var(--app-font-mongol);
+  font-size: 16px;
+  box-sizing: border-box;
+}
+
+.app-prompt__input.mn-input-latin {
+  font-family: var(--app-font-ui);
+  font-size: 14px;
+}
+
+.btn__icon {
+  writing-mode: horizontal-tb;
+  -webkit-writing-mode: horizontal-tb;
+  font-family: var(--app-font-ui);
+  line-height: 1;
+}
+
+.chip {
+  display: inline-block;
+  padding: 0.6rem 0.35rem;
+  border-radius: 999px;
+  border: 1px solid var(--app-line);
+  color: var(--app-muted);
+  font-size: 14px;
+  text-decoration: none;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.chip:hover {
+  background: var(--app-gold-soft);
+  color: var(--app-text);
+}
+
+.chip.is-active {
+  background: var(--app-accent-soft);
+  border-color: color-mix(in srgb, var(--app-accent) 40%, transparent);
+  color: var(--app-accent);
+}
+
+/* ---------- Toasts (portal adds mn-overlay; override to vertical) ----- */
+
+.app-toasts.mn-overlay,
+.app-toasts {
+  position: fixed;
+  right: calc(1.25rem + env(safe-area-inset-right, 0px));
+  bottom: calc(1.25rem + var(--app-ime-kb) + env(safe-area-inset-bottom, 0px));
+  left: auto;
+  display: flex;
+  flex-direction: column; /* under vertical-lr: toasts run left → right */
+  align-items: flex-end;
+  gap: 0.5rem;
+  z-index: var(--z-toast);
+  pointer-events: none;
+  writing-mode: vertical-lr;
+  -webkit-writing-mode: vertical-lr;
+  text-orientation: mixed;
+  font-family: var(--app-font-mongol);
+}
+
+.app-toast {
+  /* inline = height under vertical-lr — cap so long titles don't fill the screen */
+  writing-mode: vertical-lr;
+  -webkit-writing-mode: vertical-lr;
+  text-orientation: mixed;
+  font-family: var(--app-font-mongol);
+  max-inline-size: min(70vh, 16rem);
+  max-block-size: min(40vw, 6rem);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0.85rem 0.55rem;
+  border-radius: 0.75rem;
+  background: rgba(28, 34, 30, 0.92);
+  color: #fff;
+  font-size: 15px;
+  line-height: 1.55;
+  box-shadow: var(--app-shadow);
+  opacity: 0;
+  transform: translateX(6px);
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+
+.app-toast.is-in {
+  opacity: 1;
+  transform: none;
+}
+
+.app-toast--error {
+  background: rgba(179, 58, 43, 0.95);
+}
+
+.app-toast--warn {
+  background: rgba(138, 106, 44, 0.95);
+}
+
+/* ---------- Command palette (vertical-lr, scroll horizontally) -------- */
+
+.cmd-palette-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-confirm);
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  background: rgba(28, 34, 30, 0.35);
+  writing-mode: horizontal-tb;
+}
+
+.cmd-palette {
+  box-sizing: border-box;
+  writing-mode: vertical-lr;
+  -webkit-writing-mode: vertical-lr;
+  text-orientation: mixed;
+  font-family: var(--app-font-mongol);
+  display: flex;
+  /* column in vertical-lr → input left, list right */
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  height: min(70vh, 32rem);
+  max-height: calc(100dvh - 2.5rem);
+  width: min(22rem, calc(100vw - 2.5rem));
+  max-width: calc(100vw - 2.5rem);
+  border: 1px solid var(--app-line-strong);
+  border-radius: var(--app-radius);
+  background: var(--app-bg-2);
+  box-shadow: var(--app-shadow);
+  overflow: hidden;
+}
+
+.cmd-palette__input {
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  writing-mode: vertical-lr !important;
+  -webkit-writing-mode: vertical-lr !important;
+  text-orientation: mixed;
+  font-family: var(--app-font-mongol);
+  font-size: 16px;
+  block-size: 2.85rem;
+  inline-size: 100%;
+  max-inline-size: 100%;
+  margin: 0;
+  padding: 0.65rem 0.55rem;
+  border: 0;
+  border-block-end: 1px solid var(--app-line);
+  background: transparent;
+  color: var(--app-text);
+  outline: none;
+}
+
+.cmd-palette__input:focus {
+  background: color-mix(in srgb, var(--app-gold-soft) 40%, transparent);
+}
+
+.cmd-palette__list {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  /* items flow left → right */
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.25rem;
+  padding: 0.4rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+
+.cmd-palette__item {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.35rem;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  min-block-size: 2.6rem;
+  padding: 0.55rem 0.45rem;
+  border: 0;
+  border-radius: 0.55rem;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  text-align: start;
+  overflow: hidden;
+}
+
+.cmd-palette__item:hover,
+.cmd-palette__item.is-active {
+  background: var(--app-accent-soft);
+}
+
+.cmd-palette__item--doc {
+  min-block-size: 3.2rem;
+}
+
+.cmd-palette__label {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-height: 100%;
+}
+
+.cmd-palette__hint {
+  font-family: var(--app-font-ui);
+  font-size: 12px;
+  color: var(--app-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-height: 45%;
+  flex: 0 1 auto;
+}

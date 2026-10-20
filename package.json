@@ -1,0 +1,23 @@
+{
+  "name": "mgl-notes-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Web client for MGL Notes (traditional Mongolian, vertical-lr)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node --test \"test/**/*.test.js\""
+  },
+  "dependencies": {
+    "block-editor": "file:../block-editor.js",
+    "flexsearch": "^0.8.212",
+    "mgl-common-ui": "file:../mgl-common-ui.js",
+    "mgl-web-ime": "file:../mgl-web-ime.js"
+  },
+  "devDependencies": {
+    "jsdom": "^26.1.0",
+    "vite": "^6.3.5"
+  }
+}

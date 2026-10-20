@@ -1,0 +1,244 @@
+/* block-editor inside the note view: full bleed, app palette, IME font. */
+
+.note-editor {
+  height: 100%;
+  --border-color: var(--app-line);
+  --bg-color: transparent;
+  --accent: var(--app-accent);
+  --callout-bg: color-mix(in srgb, var(--app-gold-soft) 70%, #fff);
+  --callout-border: color-mix(in srgb, var(--app-accent-2) 45%, transparent);
+  --editor-padding: 1.5rem;
+}
+
+.note-editor .mgl-editor-scope .editor-container {
+  max-width: none;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.note-editor .mgl-editor-scope .toolbar {
+  gap: 4px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--app-line);
+  background: color-mix(in srgb, var(--app-bg-2) 70%, transparent);
+}
+
+.note-editor .mgl-editor-scope .toolbar button {
+  min-height: 32px;
+  padding: 5px 9px;
+  border-color: var(--app-line);
+  background: var(--app-bg-2);
+  font-family: var(--app-font-ui);
+  font-size: 12px;
+}
+
+.note-editor .mgl-editor-scope .toolbar button:hover {
+  background: var(--app-gold-soft);
+}
+
+.note-editor .mgl-editor-scope .toolbar button.active {
+  background: var(--app-accent-soft);
+  border-color: var(--app-accent);
+  color: var(--app-accent);
+}
+
+.note-editor .mgl-editor-scope .toolbar-sep {
+  background: var(--app-line);
+}
+
+.note-editor .mgl-editor-scope .editor-content {
+  font-family: var(--app-font-mongol);
+  font-size: 20px;
+  line-height: 1.9;
+  min-height: 0;
+  color: var(--app-text);
+  scrollbar-width: thin;
+  /* Chrome puts Mongolian vertical underlines on the left; Firefox on the right.
+     Force right so both match traditional Mongolian typography. */
+  text-underline-position: under right;
+}
+
+.note-editor .mgl-editor-scope .block-children {
+  border-top-color: var(--app-line);
+}
+
+.note-editor .mgl-editor-scope .editor-content blockquote {
+  border-top-color: var(--app-accent-2);
+  color: var(--app-muted);
+}
+
+.note-editor .mgl-editor-scope .editor-content {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.note-editor .mgl-editor-scope .editor-content .block-content,
+.note-editor .mgl-editor-scope .editor-content .toggle-title {
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+}
+
+.note-editor .mgl-editor-scope .editor-content a {
+  color: var(--app-accent);
+}
+
+/* Wiki markup colours match block-editor.utils.highlighter (read mode). */
+.note-editor .wiki-link {
+  color: #64b5f6;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.note-editor .wiki-tag {
+  color: #ba68c8;
+  font-style: italic;
+  cursor: pointer;
+}
+
+.note-editor .wiki-block-ref {
+  color: #78909c;
+  text-decoration: underline;
+  text-decoration-style: dashed;
+  cursor: pointer;
+}
+
+.note-editor .wiki-block-ref[data-preview]::after {
+  content: " · " attr(data-preview);
+  color: var(--app-accent);
+  font-size: 0.9em;
+  text-decoration: none;
+}
+
+/* Portal to <body> (horizontal-tb) — force vertical Mongolian columns. */
+.wiki-ac {
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  flex-direction: column; /* under vertical-lr: items run left → right */
+  align-items: stretch;
+  gap: 0.15rem;
+  min-block-size: 2.75rem;
+  max-block-size: min(15rem, 80vw);
+  max-inline-size: min(14rem, 70vh);
+  overflow: auto;
+  padding: 0.35rem;
+  border: 1px solid var(--app-line);
+  border-radius: 0.7rem;
+  background: var(--app-bg-2);
+  box-shadow: var(--app-shadow);
+  writing-mode: vertical-lr;
+  -webkit-writing-mode: vertical-lr;
+  text-orientation: mixed;
+  font-family: var(--app-font-mongol);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.wiki-ac__item {
+  display: block;
+  flex: 0 0 auto;
+  min-block-size: 2.5rem;
+  max-inline-size: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: start;
+  padding: 0.55rem 0.4rem;
+  border: 0;
+  border-radius: 0.45rem;
+  background: transparent;
+  color: var(--app-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.wiki-ac__item:hover,
+.wiki-ac__item.is-active {
+  background: var(--app-accent-soft);
+  color: var(--app-accent);
+}
+
+/* Selection format toolbar (portal → body, horizontal-tb). */
+.sel-toolbar {
+  position: fixed;
+  z-index: 62;
+  writing-mode: horizontal-tb;
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.3rem;
+  border: 1px solid var(--app-line);
+  border-radius: 0.65rem;
+  background: var(--app-bg-2);
+  box-shadow: var(--app-shadow);
+  font-family: var(--app-font-ui);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.sel-toolbar[hidden] {
+  display: none !important;
+}
+
+.sel-toolbar__group {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.sel-toolbar__btn {
+  min-width: 2rem;
+  min-height: 2rem;
+  padding: 0.3rem 0.45rem;
+  border: 1px solid transparent;
+  border-radius: 0.4rem;
+  background: transparent;
+  color: var(--app-text);
+  font: 600 13px/1 var(--app-font-ui);
+  cursor: pointer;
+}
+
+.sel-toolbar__btn:hover {
+  background: var(--app-gold-soft);
+}
+
+.sel-toolbar__btn.is-active {
+  background: var(--app-accent-soft);
+  border-color: var(--app-accent);
+  color: var(--app-accent);
+}
+
+/* Mobile: fixed bottom bar above virtual keyboard. */
+.sel-toolbar.is-mobile {
+  left: 50%;
+  right: auto;
+  top: auto;
+  bottom: calc(var(--app-ime-kb) + env(safe-area-inset-bottom, 0px) + 0.55rem);
+  transform: translateX(-50%);
+  width: min(22rem, calc(100vw - 1.5rem));
+  justify-content: center;
+  border-radius: 0.85rem;
+  padding: 0.4rem 0.55rem;
+}
+
+.sel-toolbar.is-mobile .sel-toolbar__btn {
+  min-width: 2.4rem;
+  min-height: 2.4rem;
+  flex: 1 1 auto;
+}
+
+/* Folded blocks (Cmd/Ctrl+.) show a hint where the children were. */
+.note-editor .mgl-editor-scope .block-wrapper[data-collapsed="true"]:not([data-block-type="toggle"]) > .block-content::after {
+  content: " …";
+  color: var(--app-muted);
+}
+
+@media (pointer: coarse) {
+  .note-editor .mgl-editor-scope .toolbar button {
+    min-height: 36px;
+  }
+}
