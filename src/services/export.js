@@ -273,18 +273,74 @@ export function pickAndImportDocument({ parentId = null } = {}) {
 // Full-library JSON snapshot (tree, spans, wiki/block-ref ids)
 // ---------------------------------------------------------------------------
 
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
+function dataUrlToBlob(dataUrl) {
+  const raw = String(dataUrl || '');
+  const comma = raw.indexOf(',');
+  if (comma === -1) return null;
+  const header = raw.slice(0, comma);
+  const b64 = raw.slice(comma + 1);
+  const mime = header.match(/:(.*?);/)?.[1] || 'application/octet-stream';
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: mime });
+}
+
+function backupRowIsNewer(incoming, existing) {
+  if (!existing) return true;
+  if (existing.deleted_at && !incoming.deleted_at) return true;
+  const a = String(incoming.updated_at || incoming.edited_at || '');
+  const b = String(existing.updated_at || existing.edited_at || '');
+  if (a && b && a > b) return true;
+  return false;
+}
+
 /** Snapshot of non-deleted documents and their live blocks. */
-export function buildAllBackupPayload(documents, blocks, exportedAt = nowIso()) {
+export function buildAllBackupPayload(documents, blocks, exportedAt = nowIso(), assets = []) {
   const activeDocs = (documents || []).filter((d) => d && d.id && !d.deleted_at);
   const activeDocIds = new Set(activeDocs.map((d) => d.id));
   const activeBlocks = (blocks || []).filter(
     (b) => b && b.id && !b.deleted_at && activeDocIds.has(b.document_id),
   );
+  const activeAssets = (assets || []).filter((a) => a && a.id && !a.deleted_at);
   return {
     version: 1,
     exported_at: exportedAt,
     documents: activeDocs,
     blocks: activeBlocks,
+    assets: activeAssets,
+  };
+}
+
+async function serializeAssetForBackup(row) {
+  let data_url = null;
+  if (row.blob) {
+    try {
+      data_url = await blobToDataUrl(row.blob);
+    } catch {
+      data_url = null;
+    }
+  }
+  return {
+    id: row.id,
+    mime: row.mime,
+    name: row.name,
+    filename: row.filename,
+    size: row.size,
+    sha256: row.sha256,
+    upload_status: row.upload_status,
+    created_at: row.created_at,
+    deleted_at: null,
+    data_url,
   };
 }
 
@@ -305,21 +361,31 @@ export function parseAllBackup(input) {
   if (!Array.isArray(data.documents) || !Array.isArray(data.blocks)) {
     throw new Error('Invalid backup');
   }
-  return buildAllBackupPayload(data.documents, data.blocks, data.exported_at || nowIso());
+  const assets = Array.isArray(data.assets) ? data.assets : [];
+  return buildAllBackupPayload(data.documents, data.blocks, data.exported_at || nowIso(), assets);
 }
 
 /** Export every active document and block as a JSON backup download. */
 export async function exportAllBackup() {
-  const [documents, blocks] = await Promise.all([
+  const [documents, blocks, assetRows] = await Promise.all([
     getAll('documents'),
     getAll('blocks'),
+    getAll('assets'),
   ]);
-  const payload = buildAllBackupPayload(documents, blocks, nowIso());
+  const exportedAt = nowIso();
+  const payload = buildAllBackupPayload(documents, blocks, exportedAt);
+  payload.assets = await Promise.all(
+    (assetRows || []).filter((a) => a && a.id && !a.deleted_at).map(serializeAssetForBackup),
+  );
   const blob = new Blob([JSON.stringify(payload, null, 2)], {
     type: 'application/json;charset=utf-8',
   });
   downloadBlob(`mgl-notes-backup-${dateTitle()}.json`, blob);
-  return { documents: payload.documents.length, blocks: payload.blocks.length };
+  return {
+    documents: payload.documents.length,
+    blocks: payload.blocks.length,
+    assets: payload.assets.length,
+  };
 }
 
 /**
@@ -338,39 +404,73 @@ export async function importBackupFile(file) {
   const now = nowIso();
   const importedDocIds = new Set();
 
-  await transaction(['documents', 'blocks', 'operations'], 'readwrite', async (s) => {
+  const assetList = Array.isArray(data.assets) ? data.assets : [];
+
+  await transaction(['documents', 'blocks', 'assets', 'operations'], 'readwrite', async (s) => {
     for (const doc of data.documents) {
       if (!doc?.id) continue;
       const existing = await req(s.documents.get(doc.id));
-      if (existing) continue;
-      s.documents.put(doc);
+      if (existing && !backupRowIsNewer(doc, existing)) continue;
+      s.documents.put({ ...existing, ...doc, deleted_at: doc.deleted_at ?? null });
       importedDocIds.add(doc.id);
-      s.operations.put(makeOperation('document', doc.id, 'document_create', {
-        id: doc.id,
-        title: doc.title || '',
-        type: doc.type || 'normal',
-        parent_id: doc.parent_id || null,
-        icon: doc.icon || null,
-        cover: doc.cover || null,
-      }, doc.created_at || now));
+      if (!existing) {
+        s.operations.put(makeOperation('document', doc.id, 'document_create', {
+          id: doc.id,
+          title: doc.title || '',
+          type: doc.type || 'normal',
+          parent_id: doc.parent_id || null,
+          icon: doc.icon || null,
+          cover: doc.cover || null,
+        }, doc.created_at || now));
+      }
     }
 
     for (const blk of data.blocks) {
       if (!blk?.id || !blk?.document_id) continue;
       const existing = await req(s.blocks.get(blk.id));
-      if (existing) continue;
-      s.blocks.put(blk);
+      if (existing && !backupRowIsNewer(blk, existing)) continue;
+      s.blocks.put({ ...existing, ...blk, deleted_at: blk.deleted_at ?? null });
       importedDocIds.add(blk.document_id);
-      s.operations.put(makeOperation('block', blk.id, 'block_create', {
-        id: blk.id,
-        document_id: blk.document_id,
-        parent_id: blk.parent_id || null,
-        type: blk.type || 'paragraph',
-        text: blk.text || '',
-        checked: Boolean(blk.checked),
-        data_json: blk.data_json ?? null,
-        order_index: Number(blk.order_index ?? 1000),
-      }, blk.created_at || now));
+      if (!existing) {
+        s.operations.put(makeOperation('block', blk.id, 'block_create', {
+          id: blk.id,
+          document_id: blk.document_id,
+          parent_id: blk.parent_id || null,
+          type: blk.type || 'paragraph',
+          text: blk.text || '',
+          checked: Boolean(blk.checked),
+          data_json: blk.data_json ?? null,
+          order_index: Number(blk.order_index ?? 1000),
+        }, blk.created_at || now));
+      }
+    }
+
+    for (const asset of assetList) {
+      if (!asset?.id) continue;
+      const existing = await req(s.assets.get(asset.id));
+      if (existing && !backupRowIsNewer(asset, existing)) continue;
+      const blob = asset.data_url ? dataUrlToBlob(asset.data_url) : (existing?.blob ?? null);
+      s.assets.put({
+        id: asset.id,
+        blob,
+        mime: asset.mime || existing?.mime || 'application/octet-stream',
+        name: asset.name || asset.filename || existing?.name || 'file',
+        filename: asset.filename || asset.name || existing?.filename || 'file',
+        size: Number(asset.size) || blob?.size || existing?.size || 0,
+        sha256: asset.sha256 || existing?.sha256 || '',
+        upload_status: blob ? (asset.upload_status || 'pending') : (asset.upload_status || existing?.upload_status || 'pending_download'),
+        created_at: asset.created_at || existing?.created_at || now,
+        deleted_at: null,
+      });
+      if (!existing) {
+        s.operations.put(makeOperation('asset', asset.id, 'asset_create', {
+          id: asset.id,
+          filename: asset.filename || asset.name || 'file',
+          mime_type: asset.mime || 'application/octet-stream',
+          size_bytes: Number(asset.size) || blob?.size || 0,
+          sha256: asset.sha256 || '',
+        }, asset.created_at || now));
+      }
     }
   });
 

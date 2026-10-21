@@ -26,6 +26,21 @@ export function attachBlockSelection(host, editor, {
   let dragging = false;
   let bar = null;
 
+  function wrapperForNode(node) {
+    const el = node?.nodeType === 1 ? node : node?.parentElement;
+    return el?.closest?.('.block-wrapper');
+  }
+
+  function crossBlockNativeSelection(sel = window.getSelection()) {
+    if (!sel || sel.isCollapsed || !sel.rangeCount) return null;
+    const range = sel.getRangeAt(0);
+    const start = wrapperForNode(range.startContainer);
+    const end = wrapperForNode(range.endContainer);
+    if (!start || !end || start === end) return null;
+    if (!host.contains(start) || !host.contains(end)) return null;
+    return { start, end };
+  }
+
   function topLevelOrSiblingWrappers(startWrapper, endWrapper) {
     if (!startWrapper || !endWrapper) return [];
     // 若两个块在同一个父容器下，取同级区间；否则提升到顶级块容器取区间
@@ -266,8 +281,29 @@ export function attachBlockSelection(host, editor, {
     dragging = false;
   };
 
+  let selChangeRaf = 0;
+  const onSelectionChange = () => {
+    if (isReadOnly() || dragging || selectedWrappers.length) return;
+    if (selChangeRaf) return;
+    selChangeRaf = requestAnimationFrame(() => {
+      selChangeRaf = 0;
+      const cross = crossBlockNativeSelection();
+      if (!cross) return;
+      applySelection(topLevelOrSiblingWrappers(cross.start, cross.end));
+    });
+  };
+
   const onKeyDown = (e) => {
     if (isReadOnly()) return;
+
+    const cross = !selectedWrappers.length ? crossBlockNativeSelection() : null;
+    if (cross && (e.key === 'Enter' || e.key === 'Backspace' || e.key === 'Delete')) {
+      e.preventDefault();
+      applySelection(topLevelOrSiblingWrappers(cross.start, cross.end));
+      deleteSelectedBlocks();
+      return;
+    }
+
     const mod = e.metaKey || e.ctrlKey;
 
     // 1. ⌘/Ctrl + A 二段式全选：若当前块文本已全选或已有块选中，则全选所有顶级块
@@ -300,7 +336,7 @@ export function attachBlockSelection(host, editor, {
     if (e.key === 'Escape') {
       e.preventDefault();
       clearSelection();
-    } else if (e.key === 'Backspace' || e.key === 'Delete') {
+    } else if (e.key === 'Enter' || e.key === 'Backspace' || e.key === 'Delete') {
       e.preventDefault();
       deleteSelectedBlocks();
     } else if (e.shiftKey && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
@@ -334,6 +370,7 @@ export function attachBlockSelection(host, editor, {
   };
 
   host.addEventListener('pointerdown', onPointerDown);
+  document.addEventListener('selectionchange', onSelectionChange);
   window.addEventListener('pointermove', onPointerMove);
   window.addEventListener('pointerup', onPointerUp, true);
   window.addEventListener('pointercancel', onPointerUp, true);
@@ -347,6 +384,8 @@ export function attachBlockSelection(host, editor, {
     destroy() {
       clearSelection();
       host.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('selectionchange', onSelectionChange);
+      if (selChangeRaf) cancelAnimationFrame(selChangeRaf);
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp, true);
       window.removeEventListener('pointercancel', onPointerUp, true);

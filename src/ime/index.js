@@ -303,6 +303,21 @@ export function attachEditorIme(host, editor, { keepSelector } = {}) {
     onFocusIn = (e) => suppressSystemKeyboard(e.target);
     root().addEventListener('focusin', onFocusIn);
   }
+
+  let scrollRaf = 0;
+  const onScroll = () => {
+    if (scrollRaf) return;
+    scrollRaf = requestAnimationFrame(() => {
+      scrollRaf = 0;
+      if (ime.keyboardMode === 'virtual') return;
+      if (!ime.candidatesEl?.visible) return;
+      const rect = adapter.getCaretRect?.();
+      if (rect) ime.candidatesEl.positionNear(rect);
+    });
+  };
+  const content = root();
+  content.addEventListener('scroll', onScroll, { passive: true });
+
   return {
     ime,
     /** Re-apply inputmode=none after the editor rebuilt its blocks. */
@@ -311,6 +326,8 @@ export function attachEditorIme(host, editor, { keepSelector } = {}) {
     },
     destroy() {
       if (onFocusIn) root().removeEventListener('focusin', onFocusIn);
+      content.removeEventListener('scroll', onScroll);
+      if (scrollRaf) cancelAnimationFrame(scrollRaf);
       handle.destroy();
     },
   };

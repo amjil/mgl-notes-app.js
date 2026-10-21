@@ -1,7 +1,8 @@
 import {
-  destroyDocument,
+  destroyDocuments,
   listDeletedDocuments,
   restoreDocument,
+  restoreDocuments,
 } from '../services/notes.js';
 import { on } from '../events.js';
 import { t } from '../i18n.js';
@@ -57,7 +58,7 @@ export function mountTrash(container) {
         type: 'button',
         class: 'btn btn--ghost batch-bar__btn',
         onclick: async () => {
-          for (const id of [...selected]) await restoreDocument(id);
+          await restoreDocuments([...selected]);
           selected.clear();
           selecting = false;
           selectBtn.classList.remove('is-active');
@@ -76,7 +77,7 @@ export function mountTrash(container) {
             danger: true,
           });
           if (!ok) return;
-          for (const id of [...selected]) await destroyDocument(id);
+          await destroyDocuments([...selected]);
           selected.clear();
           selecting = false;
           selectBtn.classList.remove('is-active');

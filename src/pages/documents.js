@@ -2,6 +2,7 @@ import {
   buildDocumentForest,
   createDocument,
   deleteDocument,
+  deleteDocuments,
   listDocuments,
 } from '../services/notes.js';
 import { pickAndImportDocument } from '../services/export.js';
@@ -208,7 +209,7 @@ export function mountDocuments(container, { query = {}, name } = {}) {
             danger: true,
           });
           if (!ok) return;
-          for (const id of [...selected]) await deleteDocument(id);
+          await deleteDocuments([...selected]);
           selected.clear();
           selecting = false;
           selectBtn.classList.remove('is-active');

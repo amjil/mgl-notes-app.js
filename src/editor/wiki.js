@@ -4,11 +4,21 @@
  * Stored as literal text (Flutter keeps brackets); visually decorated in the DOM.
  */
 import { get } from '../db/idb.js';
+import { on } from '../events.js';
 
 /** 1=wikilink, 2=tag (exclude CJK/MN/EN punctuation), 3=block-ref UUID */
 export const LINK_RE = /\[\[([^\]]+)\]\]|(?<=^|[\s\n\t])#([^\s\n\t#\[\],.?!:;"'()᠀-᠊，。？！：；“”‘’（）]+)|\(\(([a-f0-9-]{36})\)\)/gi;
 
 const blockTextCache = new Map();
+
+on('blocks-changed', () => blockTextCache.clear());
+on('local-change', () => blockTextCache.clear());
+
+/** Single match on one text node; always starts from offset 0. */
+function firstLinkMatch(text) {
+  LINK_RE.lastIndex = 0;
+  return LINK_RE.exec(text);
+}
 
 /** Full-span check for unwrapStale (no lookbehind — span text is the whole match). */
 const SPAN_RE = /^(?:\[\[([^\]]+)\]\]|#([^\s\n\t#\[\],.?!:;"'()᠀-᠊，。？！：；“”‘’（）]+)|\(\(([a-f0-9-]{36})\)\))$/i;
@@ -17,11 +27,11 @@ export const WIKI_SEL = '.wiki-link, .wiki-tag, .wiki-block-ref';
 
 export function parseTextSpans(text) {
   const raw = String(text || '');
-  const re = new RegExp(LINK_RE.source, 'gi');
   const tokens = [];
   let last = 0;
   let m;
-  while ((m = re.exec(raw))) {
+  LINK_RE.lastIndex = 0;
+  while ((m = LINK_RE.exec(raw))) {
     if (m.index > last) tokens.push({ type: 'text', content: raw.slice(last, m.index) });
     if (m[1] != null) tokens.push({ type: 'link', content: m[1] });
     else if (m[2] != null) tokens.push({ type: 'tag', content: m[2] });
@@ -230,8 +240,7 @@ function nextUndecoratedHit(root) {
     const n = walker.currentNode;
     if (n.parentElement?.closest?.(WIKI_SEL)) continue;
     if (n.parentElement?.closest?.('.list-marker, .callout-icon, .toggle-arrow')) continue;
-    const re = new RegExp(LINK_RE.source, 'gi');
-    const hit = re.exec(n.data);
+    const hit = firstLinkMatch(n.data);
     if (hit) return { n, hit };
   }
   return null;

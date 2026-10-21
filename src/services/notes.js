@@ -358,14 +358,24 @@ export async function updateDocumentTitle(id, title) {
 }
 
 export async function deleteDocument(id) {
+  await deleteDocuments([id]);
+}
+
+/** Soft-delete many documents (and descendants) in one IndexedDB transaction. */
+export async function deleteDocuments(ids) {
+  const list = Array.from(ids || []).filter(Boolean);
+  if (!list.length) return;
   const now = nowIso();
   const touchedIds = new Set();
   await transaction(['documents', 'operations'], 'readwrite', async (s) => {
     const allDocs = await req(s.documents.getAll());
     const byParent = indexDocChildren(allDocs, { activeOnly: true });
-    const queue = [id];
+    const queue = [...list];
+    const seen = new Set();
     while (queue.length) {
       const curId = queue.shift();
+      if (seen.has(curId)) continue;
+      seen.add(curId);
       const doc = await req(s.documents.get(curId));
       if (!doc || doc.deleted_at) continue;
       s.documents.put({ ...doc, deleted_at: now, updated_at: now });
@@ -387,14 +397,24 @@ export async function listDeletedDocuments() {
 
 /** Undo soft-delete (`document_restore`). */
 export async function restoreDocument(id) {
+  await restoreDocuments([id]);
+}
+
+/** Restore many soft-deleted documents (and descendants) in one transaction. */
+export async function restoreDocuments(ids) {
+  const list = Array.from(ids || []).filter(Boolean);
+  if (!list.length) return;
   const now = nowIso();
   const touchedIds = new Set();
   await transaction(['documents', 'operations'], 'readwrite', async (s) => {
     const allDocs = await req(s.documents.getAll());
     const byParent = indexDocChildren(allDocs, { activeOnly: false });
-    const queue = [id];
+    const queue = [...list];
+    const seen = new Set();
     while (queue.length) {
       const curId = queue.shift();
+      if (seen.has(curId)) continue;
+      seen.add(curId);
       const doc = await req(s.documents.get(curId));
       if (!doc) continue;
       if (doc.deleted_at) {
@@ -433,13 +453,20 @@ async function purgeDocumentFromStore(s, docId, now, assetIds) {
 }
 
 export async function destroyDocument(id) {
+  await destroyDocuments([id]);
+}
+
+/** Permanently destroy many documents (and descendants) in one transaction. */
+export async function destroyDocuments(ids) {
+  const list = Array.from(ids || []).filter(Boolean);
+  if (!list.length) return;
   const now = nowIso();
   const assetIds = [];
   const destroyedIds = new Set();
   await transaction(['documents', 'blocks', 'operations', 'block_links'], 'readwrite', async (s) => {
     const allDocs = await req(s.documents.getAll());
     const byParent = indexDocChildren(allDocs, { activeOnly: false });
-    const queue = [id];
+    const queue = [...list];
     const toDestroy = [];
     const seen = new Set();
     while (queue.length) {
