@@ -160,12 +160,50 @@ function encodeExtra(data, spans, alwaysData) {
 export function treeToRows(tree, snapshot = new Map(), doc = globalThis.document) {
   const rows = [];
 
+  const assignOrderIndices = (nodes) => {
+    const n = nodes.length;
+    const orders = nodes.map((node) => {
+      const prev = snapshot.get(node?.id);
+      return (prev && Number.isFinite(Number(prev.order_index))) ? Number(prev.order_index) : null;
+    });
+
+    let maxSeen = -Infinity;
+    for (let i = 0; i < n; i++) {
+      if (orders[i] != null) {
+        if (orders[i] > maxSeen) maxSeen = orders[i];
+        else orders[i] = null;
+      }
+    }
+
+    let i = 0;
+    while (i < n) {
+      if (orders[i] != null) {
+        i += 1;
+        continue;
+      }
+      let j = i;
+      while (j < n && orders[j] == null) j += 1;
+      const leftOrder = i > 0 ? orders[i - 1] : 0;
+      const rightOrder = j < n ? orders[j] : leftOrder + (j - i + 1) * 1000.0;
+      const step = (rightOrder - leftOrder) / (j - i + 1);
+
+      if (step < 1e-4) {
+        return nodes.map((_, idx) => 1000.0 * (idx + 1));
+      }
+      for (let k = i; k < j; k++) {
+        orders[k] = leftOrder + step * (k - i + 1);
+      }
+      i = j;
+    }
+    return orders;
+  };
+
   const walk = (nodes, parentId) => {
-    nodes.forEach((node, idx) => {
-      if (!node || !node.id) return;
+    const valid = (nodes || []).filter((node) => node && node.id);
+    const orders = assignOrderIndices(valid);
+    valid.forEach((node, idx) => {
       const prev = snapshot.get(node.id) || null;
-      const orderIndex = 1000.0 * (idx + 1);
-      rows.push(nodeToRow(node, parentId, orderIndex, prev, doc));
+      rows.push(nodeToRow(node, parentId, orders[idx], prev, doc));
       if (node.children && node.children.length) walk(node.children, node.id);
     });
   };

@@ -121,19 +121,39 @@ export function buildDocumentForest(docs) {
   const kids = new Map();
   for (const d of list) {
     const raw = d.parent_id || null;
-    const pid = raw && byId.has(raw) ? raw : null;
+    const pid = (raw && raw !== d.id && byId.has(raw)) ? raw : null;
     if (!kids.has(pid)) kids.set(pid, []);
     kids.get(pid).push(d);
   }
   const byTime = (a, b) => sortKey(b).localeCompare(sortKey(a));
   for (const group of kids.values()) group.sort(byTime);
 
+  const visited = new Set();
   function node(doc, depth) {
-    const children = (kids.get(doc.id) || []).map((c) => node(c, depth + 1));
+    visited.add(doc.id);
+    const children = (kids.get(doc.id) || [])
+      .filter((c) => !visited.has(c.id))
+      .map((c) => node(c, depth + 1));
     return { doc, depth, children };
   }
 
-  return (kids.get(null) || []).map((d) => node(d, 0));
+  const roots = (kids.get(null) || []).map((d) => node(d, 0));
+  for (const d of list) {
+    if (!visited.has(d.id)) roots.push(node(d, 0));
+  }
+  return roots;
+}
+
+function indexDocChildren(allDocs, { activeOnly = false } = {}) {
+  const byParent = new Map();
+  for (const d of allDocs) {
+    if (!d) continue;
+    if (activeOnly && d.deleted_at) continue;
+    const pid = d.parent_id || null;
+    if (!byParent.has(pid)) byParent.set(pid, []);
+    byParent.get(pid).push(d);
+  }
+  return byParent;
 }
 
 /** Direct children of `parentId` (active docs only). */
@@ -339,14 +359,25 @@ export async function updateDocumentTitle(id, title) {
 
 export async function deleteDocument(id) {
   const now = nowIso();
+  const touchedIds = new Set();
   await transaction(['documents', 'operations'], 'readwrite', async (s) => {
-    const doc = await req(s.documents.get(id));
-    if (!doc || doc.deleted_at) return;
-    s.documents.put({ ...doc, deleted_at: now, updated_at: now });
-    s.operations.put(makeOperation('document', id, 'document_delete', { deleted_at: now }, now));
+    const allDocs = await req(s.documents.getAll());
+    const byParent = indexDocChildren(allDocs, { activeOnly: true });
+    const queue = [id];
+    while (queue.length) {
+      const curId = queue.shift();
+      const doc = await req(s.documents.get(curId));
+      if (!doc || doc.deleted_at) continue;
+      s.documents.put({ ...doc, deleted_at: now, updated_at: now });
+      s.operations.put(makeOperation('document', curId, 'document_delete', { deleted_at: now }, now));
+      touchedIds.add(curId);
+      (byParent.get(curId) || []).forEach((child) => queue.push(child.id));
+    }
   });
-  emit('documents-changed', { documentIds: new Set([id]) });
-  emitLocal(id);
+  if (touchedIds.size) {
+    emit('documents-changed', { documentIds: touchedIds });
+    emitLocal([...touchedIds]);
+  }
 }
 
 export async function listDeletedDocuments() {
@@ -357,44 +388,80 @@ export async function listDeletedDocuments() {
 /** Undo soft-delete (`document_restore`). */
 export async function restoreDocument(id) {
   const now = nowIso();
+  const touchedIds = new Set();
   await transaction(['documents', 'operations'], 'readwrite', async (s) => {
-    const doc = await req(s.documents.get(id));
-    if (!doc || !doc.deleted_at) return;
-    s.documents.put({ ...doc, deleted_at: null, updated_at: now });
-    s.operations.put(makeOperation('document', id, 'document_restore', {}, now));
+    const allDocs = await req(s.documents.getAll());
+    const byParent = indexDocChildren(allDocs, { activeOnly: false });
+    const queue = [id];
+    while (queue.length) {
+      const curId = queue.shift();
+      const doc = await req(s.documents.get(curId));
+      if (!doc) continue;
+      if (doc.deleted_at) {
+        s.documents.put({ ...doc, deleted_at: null, updated_at: now });
+        s.operations.put(makeOperation('document', curId, 'document_restore', {}, now));
+        touchedIds.add(curId);
+      }
+      (byParent.get(curId) || []).forEach((child) => queue.push(child.id));
+    }
   });
-  emit('documents-changed', { documentIds: new Set([id]) });
-  emitLocal(id);
+  if (touchedIds.size) {
+    emit('documents-changed', { documentIds: touchedIds });
+    emitLocal([...touchedIds]);
+  }
 }
 
 /**
  * Permanently remove a document (`document_destroy`).
  * IndexedDB has no FK cascade, so blocks (+ derived links) are removed here too.
  */
+async function purgeDocumentFromStore(s, docId, now, assetIds) {
+  const doc = await req(s.documents.get(docId));
+  if (!doc) return;
+  const blocks = await req(s.blocks.index('document_id').getAll(docId));
+  for (const b of blocks) {
+    if (b.type === 'image' && b.data_json) {
+      const aid = decodeDataJson(b.data_json)?.data?.['asset-id'];
+      if (aid) assetIds.push(aid);
+    }
+    const links = await req(s.block_links.index('source_id').getAll(b.id));
+    links.forEach((r) => s.block_links.delete([r.source_id, r.target_id, r.link_type]));
+    s.blocks.delete(b.id);
+  }
+  s.documents.delete(docId);
+  s.operations.put(makeOperation('document', docId, 'document_destroy', {}, now));
+}
+
 export async function destroyDocument(id) {
   const now = nowIso();
   const assetIds = [];
+  const destroyedIds = new Set();
   await transaction(['documents', 'blocks', 'operations', 'block_links'], 'readwrite', async (s) => {
-    const doc = await req(s.documents.get(id));
-    if (!doc) return;
-    const blocks = await req(s.blocks.index('document_id').getAll(id));
-    for (const b of blocks) {
-      if (b.type === 'image' && b.data_json) {
-        const aid = decodeDataJson(b.data_json)?.data?.['asset-id'];
-        if (aid) assetIds.push(aid);
-      }
-      const links = await req(s.block_links.index('source_id').getAll(b.id));
-      links.forEach((r) => s.block_links.delete([r.source_id, r.target_id, r.link_type]));
-      s.blocks.delete(b.id);
+    const allDocs = await req(s.documents.getAll());
+    const byParent = indexDocChildren(allDocs, { activeOnly: false });
+    const queue = [id];
+    const toDestroy = [];
+    const seen = new Set();
+    while (queue.length) {
+      const curId = queue.shift();
+      if (seen.has(curId)) continue;
+      seen.add(curId);
+      if (!(await req(s.documents.get(curId)))) continue;
+      toDestroy.push(curId);
+      (byParent.get(curId) || []).forEach((child) => queue.push(child.id));
     }
-    s.documents.delete(id);
-    s.operations.put(makeOperation('document', id, 'document_destroy', {}, now));
+    for (const docId of toDestroy) {
+      await purgeDocumentFromStore(s, docId, now, assetIds);
+      destroyedIds.add(docId);
+    }
   });
   for (const aid of assetIds) {
     try { await deleteAsset(aid); } catch { /* ignore */ }
   }
-  emit('documents-changed', { documentIds: new Set([id]) });
-  emitLocal(id);
+  if (destroyedIds.size) {
+    emit('documents-changed', { documentIds: destroyedIds });
+    emitLocal([...destroyedIds]);
+  }
 }
 
 let dailyChain = Promise.resolve();

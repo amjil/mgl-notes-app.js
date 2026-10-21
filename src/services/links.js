@@ -5,13 +5,20 @@
 import { get, getAll, getAllByIndex, req, transaction } from '../db/idb.js';
 import { navigate } from '../router.js';
 import { tagTargetsFromText, wikiTargetsFromText } from '../editor/wiki.js';
+import { fold } from '../search/text.js';
 import { createDocument, findDailyByTitle } from './notes.js';
 
 const DATE_TITLE = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function findDocumentByTitle(title) {
-  const rows = await getAllByIndex('documents', 'title', title);
-  return rows.find((d) => !d.deleted_at) || null;
+  const exactRows = await getAllByIndex('documents', 'title', title);
+  const exact = exactRows.find((d) => !d.deleted_at);
+  if (exact) return exact;
+
+  const targetFolded = fold(title);
+  if (!targetFolded) return null;
+  const allDocs = await getAll('documents');
+  return allDocs.find((d) => !d.deleted_at && d.title && fold(d.title) === targetFolded) || null;
 }
 
 export async function openOrCreateByTitle(title) {
@@ -234,7 +241,14 @@ export async function reindexAllLinks() {
  * One row per source block; pass `excludeDocumentId` to skip the open note.
  */
 export async function backlinksForTitle(title, { excludeDocumentId = null } = {}) {
-  const rows = await getAllByIndex('block_links', 'target_id', title);
+  let rows = await getAllByIndex('block_links', 'target_id', title);
+  if (!rows.length) {
+    const targetFolded = fold(title);
+    if (targetFolded) {
+      const all = await getAll('block_links');
+      rows = all.filter((r) => fold(r.target_id) === targetFolded);
+    }
+  }
   const out = [];
   for (const row of rows) {
     const id = row.source_id;

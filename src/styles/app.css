@@ -172,6 +172,7 @@ button {
 .app-confirm-root {
   position: fixed;
   inset: 0;
+  bottom: var(--app-ime-kb, 0px);
   z-index: var(--z-confirm);
   display: grid;
   place-items: center;
@@ -346,6 +347,7 @@ button {
 .cmd-palette-backdrop {
   position: fixed;
   inset: 0;
+  bottom: var(--app-ime-kb, 0px);
   z-index: var(--z-confirm);
   display: grid;
   place-items: center;

@@ -235,7 +235,25 @@ async function dispatch(s, action, eid, p, createdAt, result) {
         await touchDocument(s, p.document_id, at);
         return;
       case 'block_update': {
-        if (!blk) return;
+        if (!blk) {
+          if (!p.document_id) return;
+          s.blocks.put({
+            id: eid,
+            document_id: p.document_id,
+            parent_id: p.parent_id || null,
+            type: p.type || 'paragraph',
+            text: p.text || '',
+            checked: Boolean(p.checked),
+            data_json: p.data_json || null,
+            order_index: Number(p.order_index ?? 1000.0),
+            created_at: at,
+            updated_at: at,
+            deleted_at: null,
+          });
+          result.linkRebuildIds.add(eid);
+          await touchDocument(s, p.document_id, at);
+          return;
+        }
         if (!lwwOk(blk.updated_at, createdAt)) {
           result.skipped.push({ kind: 'block', id: eid, action, documentId });
           return;
