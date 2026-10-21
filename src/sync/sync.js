@@ -82,7 +82,15 @@ function withLock(kind, fn) {
     return Promise.resolve('queued');
   }
   busy = true;
-  return fn()
+
+  const runExclusive = () => {
+    if (navigator.locks?.request) {
+      return navigator.locks.request('mgl-notes-sync-lock', () => fn());
+    }
+    return fn();
+  };
+
+  return runExclusive()
     .catch((e) => {
       status(e && e.network ? 'offline' : 'error', describe(e));
       return 'error';

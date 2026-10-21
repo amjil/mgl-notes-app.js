@@ -90,3 +90,11 @@ export function applyPrefs() {
   applyTheme();
   setImeMode(imeDefault());
 }
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key === FONT_KEY || e.key === THEME_KEY || e.key === IME_KEY) {
+      applyPrefs();
+    }
+  });
+}

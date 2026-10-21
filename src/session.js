@@ -47,3 +47,16 @@ export function onSessionChange(fn) {
   listeners.add(fn);
   return () => listeners.delete(fn);
 }
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key === TOKEN_KEY || e.key === USER_KEY) {
+      const isNowIn = loggedIn();
+      listeners.forEach((fn) => fn({
+        loggedIn: isNowIn,
+        user: isNowIn ? currentUser() : null,
+        reason: isNowIn ? 'login' : 'logout',
+      }));
+    }
+  });
+}
