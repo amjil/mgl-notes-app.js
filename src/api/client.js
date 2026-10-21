@@ -24,7 +24,13 @@ function errorMessage(body, status) {
   return `HTTP ${status}`;
 }
 
-export async function request(path, { method = 'GET', body, auth = true, query } = {}) {
+export async function request(path, {
+  method = 'GET',
+  body,
+  auth = true,
+  query,
+  timeoutMs = 15000,
+} = {}) {
   const url = new URL(apiBase() + path);
   Object.entries(query || {}).forEach(([k, v]) => {
     if (v != null) url.searchParams.set(k, String(v));
@@ -34,15 +40,23 @@ export async function request(path, { method = 'GET', body, auth = true, query }
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   if (auth && token()) headers.Authorization = `Bearer ${token()}`;
 
+  const controller = new AbortController();
+  const timer = timeoutMs > 0
+    ? setTimeout(() => controller.abort(new Error('Request timeout')), timeoutMs)
+    : 0;
+
   let res;
   try {
     res = await fetch(url, {
       method,
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
+      signal: controller.signal,
     });
   } catch (e) {
     throw new ApiError('Cannot reach sync server', { status: 0, body: String(e) });
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 
   const text = await res.text();

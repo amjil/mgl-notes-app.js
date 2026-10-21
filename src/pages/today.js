@@ -171,8 +171,27 @@ export async function mountToday(container, { params = [], query = {} } = {}) {
   const backlinks = createBacklinksPanel(title, { excludeDocumentId: doc.id });
   container.querySelector('.note-view')?.append(backlinks.root);
   const offLinks = on('blocks-changed', () => { void backlinks.refresh(); });
+
+  const isDefaultTodayRoute = !params[0];
+
+  const checkMidnightRollover = async () => {
+    if (!isDefaultTodayRoute || document.visibilityState === 'hidden') return;
+    const nowTitle = dateTitle(new Date());
+    if (nowTitle !== title) {
+      await view?.session?.flush?.();
+      navigate('/today', { replace: true });
+    }
+  };
+
+  const midnightTimer = isDefaultTodayRoute
+    ? setInterval(checkMidnightRollover, 60 * 1000)
+    : 0;
+  document.addEventListener('visibilitychange', checkMidnightRollover);
+
   return {
     async destroy() {
+      if (midnightTimer) clearInterval(midnightTimer);
+      document.removeEventListener('visibilitychange', checkMidnightRollover);
       offLinks();
       backlinks.destroy?.();
       await view.destroy();

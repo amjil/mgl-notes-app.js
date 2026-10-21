@@ -25,7 +25,8 @@ import { onBeforePull } from '../sync/sync.js';
 import { emit, on } from '../events.js';
 import { t } from '../i18n.js';
 import { toast } from '../ui/toast.js';
-import { debounce } from '../util.js';
+import { parseExportLine } from '../services/export.js';
+import { debounce, newId, normalizeMongolianText } from '../util.js';
 
 const PERSIST_DEBOUNCE_MS = 2000;
 const DECORATE_MS = 120;
@@ -58,6 +59,7 @@ export function createEditorSession(host, documentId, { focusBlockId = null } = 
   let readOnly = false;
   let pendingFocus = focusBlockId || null;
   let lastErrorToastAt = 0;
+  let pendingRemoteReload = false;
 
   const imeHandle = attachEditorIme(host, editor, {
     keepSelector: '.note-editor .toolbar, .wiki-ac, .sel-toolbar, .block-sel-bar',
@@ -131,6 +133,11 @@ export function createEditorSession(host, documentId, { focusBlockId = null } = 
         ];
         if (changes.deleted?.length) await clearLinksForIds(changes.deleted);
         if (linkRows.length) await rebuildLinksForRows(linkRows);
+
+        if (pendingRemoteReload && !dirty && !destroyed) {
+          pendingRemoteReload = false;
+          await load();
+        }
         return true;
       } catch (e) {
         dirty = true;
@@ -269,17 +276,70 @@ export function createEditorSession(host, documentId, { focusBlockId = null } = 
     }
   }
 
-  const onPaste = (e) => {
+  const onPasteCapture = (e) => {
     if (readOnly) return;
-    const files = Array.from(e.clipboardData?.files || []);
+    const cd = e.clipboardData;
+    if (!cd) return;
+
+    const files = Array.from(cd.files || []);
     let imgFile = files.find((f) => f.type.startsWith('image/'));
-    if (!imgFile && e.clipboardData?.items) {
-      const item = Array.from(e.clipboardData.items).find((i) => i.type.startsWith('image/'));
+    if (!imgFile && cd.items) {
+      const item = Array.from(cd.items).find((i) => i.type.startsWith('image/'));
       if (item) imgFile = item.getAsFile();
     }
-    if (!imgFile) return;
+    if (imgFile) {
+      e.preventDefault();
+      e.stopPropagation();
+      void insertImageFromFile(imgFile);
+      return;
+    }
+
+    const rawText = cd.getData('text/plain');
+    if (!rawText) return;
+    const cleaned = normalizeMongolianText(rawText).replace(/\r\n/g, '\n');
+    const lines = cleaned.split('\n').map((l) => l.trimEnd());
+
+    if (lines.length <= 1) {
+      if (cleaned !== rawText) {
+        e.preventDefault();
+        e.stopPropagation();
+        document.execCommand('insertText', false, cleaned);
+      }
+      return;
+    }
+
+    const activeEl = document.activeElement;
+    if (activeEl?.closest?.('.mgl-cell, .mgl-code-block')) return;
+
     e.preventDefault();
-    void insertImageFromFile(imgFile);
+    e.stopPropagation();
+    const nonEmptyLines = lines.filter((l, idx) => l.length > 0 || idx === 0);
+    const parsedBlocks = nonEmptyLines.map((line) => {
+      const spec = parseExportLine(line);
+      return {
+        id: newId(),
+        type: spec.type === 'todo' ? 'task' : spec.type,
+        text: spec.text,
+        checked: Boolean(spec.checked),
+        children: [],
+      };
+    });
+
+    const currentTree = editor.getBlocks();
+    const curId = caretBlockId();
+    const idx = curId ? currentTree.findIndex((b) => b.id === curId) : -1;
+    if (idx !== -1) {
+      const curBlock = currentTree[idx];
+      const isCurEmpty = !curBlock.text && (!curBlock.children || !curBlock.children.length);
+      if (isCurEmpty) currentTree.splice(idx, 1, ...parsedBlocks);
+      else currentTree.splice(idx + 1, 0, ...parsedBlocks);
+    } else {
+      currentTree.push(...parsedBlocks);
+    }
+    editor.setBlocks(currentTree);
+    decorateHost(host);
+    imeHandle.refresh();
+    markDirty();
   };
 
   const onDragOver = (e) => {
@@ -298,7 +358,7 @@ export function createEditorSession(host, documentId, { focusBlockId = null } = 
     void insertImageFromFile(imgFile);
   };
 
-  host.addEventListener('paste', onPaste);
+  host.addEventListener('paste', onPasteCapture, true);
   host.addEventListener('dragover', onDragOver);
   host.addEventListener('drop', onDrop);
 
@@ -366,7 +426,10 @@ export function createEditorSession(host, documentId, { focusBlockId = null } = 
   const offPull = onBeforePull(() => flush());
   const offRemote = on('blocks-changed', ({ documentIds }) => {
     if (destroyed || !documentIds || !documentIds.has(documentId)) return;
-    if (dirty) return;
+    if (dirty) {
+      pendingRemoteReload = true;
+      return;
+    }
     chain = chain.catch(() => null).then(load);
   });
   const onHide = () => {
@@ -434,7 +497,7 @@ export function createEditorSession(host, documentId, { focusBlockId = null } = 
       offRemote();
       host.removeEventListener('click', onClick);
       host.removeEventListener('copy', onCopy);
-      host.removeEventListener('paste', onPaste);
+      host.removeEventListener('paste', onPasteCapture, true);
       host.removeEventListener('dragover', onDragOver);
       host.removeEventListener('drop', onDrop);
       host.removeEventListener('keydown', onTableKeyDown);

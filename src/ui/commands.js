@@ -3,7 +3,7 @@
  * and the mobile-friendly searchable sheet. Typing also searches documents.
  */
 import { portal } from 'mgl-common-ui';
-import { h } from '../util.js';
+import { h, trapFocus } from '../util.js';
 import { t } from '../i18n.js';
 import { setTheme, theme } from '../prefs.js';
 import { navigate } from '../router.js';
@@ -17,8 +17,53 @@ import { toast } from './toast.js';
 
 const THEME_CYCLE = ['auto', 'light', 'dark'];
 
+const SHORTCUT_LIST = [
+  ['⌘ / Ctrl + K', 'commands'],
+  ['⌘ / Ctrl + N', 'newDocument'],
+  ['⌘ / Ctrl + .', 'shortcutToggleFold'],
+  ['⌘ / Ctrl + Z', 'undo'],
+  ['⌘ / Ctrl + ⇧ + Z', 'redo'],
+  ['Alt + ← / →', 'shortcutMoveBlock'],
+  ['Tab / ⇧ + Tab', 'shortcutIndent'],
+  ['⌘ / Ctrl + Click', 'shortcutOpenLink'],
+];
+
+export function openShortcutsDialog() {
+  let releaseTrap = () => {};
+  const close = () => {
+    window.removeEventListener('keydown', onKey, true);
+    releaseTrap();
+    root.remove();
+  };
+  const onKey = (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      close();
+    }
+  };
+
+  const rows = SHORTCUT_LIST.map(([keys, labelKey]) => h('div', { class: 'cmd-palette__item' },
+    h('span', { class: 'cmd-palette__label' }, t(labelKey)),
+    h('span', { class: 'cmd-palette__hint mn-upright' }, keys)));
+
+  const panel = h('div', {
+    class: 'cmd-palette',
+    role: 'dialog',
+    'aria-label': t('shortcuts'),
+    onclick: (e) => e.stopPropagation(),
+  },
+    h('div', { class: 'cmd-palette__input', style: 'display:flex;align-items:center;font-weight:600' }, t('shortcuts')),
+    h('div', { class: 'cmd-palette__list' }, ...rows));
+
+  const root = h('div', { class: 'cmd-palette-backdrop', onclick: close }, panel);
+  window.addEventListener('keydown', onKey, true);
+  portal(root);
+  releaseTrap = trapFocus(panel);
+}
+
 let open = false;
 let host = null;
+let paletteReleaseTrap = () => {};
 /** @type {{ destroy: () => void, ime?: import('mgl-web-ime').MglIME } | null} */
 let fieldIme = null;
 
@@ -68,6 +113,7 @@ function commands() {
         }
       },
     },
+    { id: 'shortcuts', label: t('shortcuts'), run: () => openShortcutsDialog() },
     { id: 'sync', label: t('sync'), run: () => syncNow() },
     { id: 'ime', label: t('imeToggle'), run: () => toggleImeMode() },
     {
@@ -89,6 +135,8 @@ function commands() {
 
 function closePalette() {
   open = false;
+  paletteReleaseTrap();
+  paletteReleaseTrap = () => {};
   fieldIme?.destroy?.();
   fieldIme = null;
   host?.remove();
@@ -138,6 +186,7 @@ export function openCommandPalette() {
   const backdrop = h('div', { class: 'cmd-palette-backdrop', onclick: closePalette }, panel);
   host = backdrop;
   portal(backdrop);
+  paletteReleaseTrap = trapFocus(panel);
   fieldIme = attachFieldIme(input, { keepSelector: '.cmd-palette' });
   input.focus();
 
@@ -231,6 +280,11 @@ export function installCommandShortcuts() {
       if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
       e.preventDefault();
       void createDocument({ title: '', type: 'normal' }).then((doc) => navigate(`/doc/${doc.id}`));
+      return;
+    }
+    if (mod && (e.key === '/' || e.key === '?')) {
+      e.preventDefault();
+      openShortcutsDialog();
     }
   });
 }

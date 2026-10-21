@@ -4,7 +4,7 @@
  */
 import { attachFieldIme, commitPending } from '../ime/index.js';
 import { t } from '../i18n.js';
-import { h } from '../util.js';
+import { h, trapFocus } from '../util.js';
 
 export function promptDialog({
   title,
@@ -14,6 +14,7 @@ export function promptDialog({
 } = {}) {
   return new Promise((resolve) => {
     let settled = false;
+    let releaseTrap = () => {};
     const imes = [];
     const inputs = new Map();
 
@@ -21,6 +22,7 @@ export function promptDialog({
       if (settled) return;
       settled = true;
       document.removeEventListener('keydown', onKey, true);
+      releaseTrap();
       for (const handle of imes) {
         await commitPending(handle.ime);
         handle.destroy();
@@ -97,6 +99,7 @@ export function promptDialog({
 
     document.body.append(root);
     document.addEventListener('keydown', onKey, true);
+    releaseTrap = trapFocus(form);
     const firstInput = inputs.values().next().value;
     if (firstInput) {
       firstInput.focus();

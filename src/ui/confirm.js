@@ -2,7 +2,7 @@
  * Modal confirm dialog. Resolves true / false.
  * Matches the vertical Mongolian dialog style used elsewhere in the shell.
  */
-import { h } from '../util.js';
+import { h, trapFocus } from '../util.js';
 import { t } from '../i18n.js';
 
 export function confirmDialog({
@@ -14,10 +14,12 @@ export function confirmDialog({
 } = {}) {
   return new Promise((resolve) => {
     let settled = false;
+    let releaseTrap = () => {};
     const finish = (ok) => {
       if (settled) return;
       settled = true;
       document.removeEventListener('keydown', onKey, true);
+      releaseTrap();
       root.remove();
       resolve(ok);
     };
@@ -58,6 +60,7 @@ export function confirmDialog({
 
     document.body.append(root);
     document.addEventListener('keydown', onKey, true);
+    releaseTrap = trapFocus(panel);
     okBtn.focus();
   });
 }

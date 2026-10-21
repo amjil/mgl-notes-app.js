@@ -30,6 +30,9 @@ let pending = null;
 let pushTimer = 0;
 let forceTimer = 0;
 let pullTimer = 0;
+let retryCount = 0;
+let retryTimer = 0;
+const MAX_RETRIES = 3;
 let started = false;
 let firstSyncPromise = Promise.resolve();
 const teardown = [];
@@ -76,12 +79,21 @@ function merge(prev, kind) {
   return prev === kind ? prev : 'sync';
 }
 
+function isRetryableSyncError(e) {
+  if (!e) return false;
+  if (e.network) return true;
+  const status = e.status;
+  return typeof status === 'number' && status >= 500 && status < 600;
+}
+
 function withLock(kind, fn) {
   if (busy) {
     pending = merge(pending, kind);
     return Promise.resolve('queued');
   }
   busy = true;
+  clearTimeout(retryTimer);
+  retryTimer = 0;
 
   const runExclusive = () => {
     if (navigator.locks?.request) {
@@ -91,8 +103,21 @@ function withLock(kind, fn) {
   };
 
   return runExclusive()
+    .then((res) => {
+      retryCount = 0;
+      return res;
+    })
     .catch((e) => {
       status(e && e.network ? 'offline' : 'error', describe(e));
+      if (started && loggedIn() && retryCount < MAX_RETRIES && navigator.onLine !== false
+        && isRetryableSyncError(e)) {
+        const delay = 3000 * (2 ** retryCount);
+        retryCount += 1;
+        retryTimer = setTimeout(() => {
+          retryTimer = 0;
+          syncNow();
+        }, delay);
+      }
       return 'error';
     })
     .finally(() => {
@@ -307,6 +332,8 @@ export function stopSync() {
   clearTimeout(pushTimer);
   clearTimeout(forceTimer);
   clearInterval(pullTimer);
-  pushTimer = forceTimer = pullTimer = 0;
+  clearTimeout(retryTimer);
+  pushTimer = forceTimer = pullTimer = retryTimer = 0;
+  retryCount = 0;
   teardown.splice(0).forEach((fn) => fn());
 }
