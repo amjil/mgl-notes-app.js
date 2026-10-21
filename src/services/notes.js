@@ -4,6 +4,7 @@
  */
 import { getAll, getAllByIndex, get, req, transaction } from '../db/idb.js';
 import { decodeDataJson } from '../editor/bridge.js';
+import { tagTargetsFromText, wikiTargetsFromText } from '../editor/wiki.js';
 import { makeOperation } from '../sync/ops.js';
 import { emit } from '../events.js';
 import { newId, nowIso } from '../util.js';
@@ -14,6 +15,78 @@ function emitLocal(docId = null) {
   if (Array.isArray(docId)) docId.forEach((id) => id && documentIds.add(id));
   else if (docId) documentIds.add(docId);
   emit('local-change', { documentIds });
+}
+
+function escapeRegExp(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * 将文本中的 [[oldTitle]] 替换为 [[newTitle]]，并同步平移 data_json 中的 content-spans 偏移量，
+ * 防止块内原有的加粗/斜体/链接位置错乱。
+ */
+export function replaceWikiLinkInBlock(block, oldTitle, newTitle) {
+  const rawText = String(block.text || '');
+  const re = new RegExp(`\\[\\[(\\s*)${escapeRegExp(oldTitle)}(\\s*)\\]\\]`, 'gi');
+  const edits = [];
+  let match;
+
+  while ((match = re.exec(rawText)) !== null) {
+    const replacement = `[[${match[1]}${newTitle}${match[2]}]]`;
+    edits.push({
+      start: match.index,
+      end: match.index + match[0].length,
+      delta: replacement.length - match[0].length,
+      replacement,
+    });
+  }
+
+  if (!edits.length) return null;
+
+  let nextText = '';
+  let cursor = 0;
+  for (const ed of edits) {
+    nextText += rawText.slice(cursor, ed.start) + ed.replacement;
+    cursor = ed.end;
+  }
+  nextText += rawText.slice(cursor);
+
+  let nextDataJson = block.data_json ?? null;
+  const totalDelta = edits.reduce((sum, ed) => sum + ed.delta, 0);
+  if (totalDelta !== 0 && nextDataJson) {
+    const extra = decodeDataJson(nextDataJson);
+    if (Array.isArray(extra['content-spans']) && extra['content-spans'].length) {
+      const mapOffset = (pos) => {
+        let shift = 0;
+        for (const ed of edits) {
+          if (pos >= ed.end) {
+            shift += ed.delta;
+          } else if (pos > ed.start) {
+            shift += Math.min(ed.delta, Math.max(0, (pos - ed.start) + ed.delta));
+            break;
+          } else {
+            break;
+          }
+        }
+        return Math.max(0, pos + shift);
+      };
+
+      const updatedSpans = extra['content-spans']
+        .map((span) => ({
+          ...span,
+          start: mapOffset(Number(span.start) || 0),
+          end: mapOffset(Number(span.end) || 0),
+        }))
+        .filter((span) => span.end > span.start);
+
+      nextDataJson = JSON.stringify({
+        ...extra,
+        'content-spans': updatedSpans,
+      });
+    }
+  }
+
+  return { text: nextText, data_json: nextDataJson };
 }
 
 // ---------------------------------------------------------------------------
@@ -188,17 +261,78 @@ export async function createDocument({
 }
 
 export async function updateDocumentTitle(id, title) {
+  const nextTitle = String(title ?? '').trim();
   const now = nowIso();
-  const changed = await transaction(['documents', 'operations'], 'readwrite', async (s) => {
-    const doc = await req(s.documents.get(id));
-    if (!doc || doc.title === title) return false;
-    s.documents.put({ ...doc, title, updated_at: now });
-    s.operations.put(makeOperation('document', id, 'document_update', { title }, now));
-    return true;
-  });
+  const touchedDocIds = new Set([id]);
+  const touchedBlockDocIds = new Set();
+
+  const changed = await transaction(
+    ['documents', 'blocks', 'operations', 'block_links'],
+    'readwrite',
+    async (s) => {
+      const doc = await req(s.documents.get(id));
+      if (!doc || doc.title === nextTitle) return false;
+
+      const oldTitle = String(doc.title || '').trim();
+      s.documents.put({ ...doc, title: nextTitle, updated_at: now });
+      s.operations.put(makeOperation('document', id, 'document_update', { title: nextTitle }, now));
+
+      if (oldTitle && nextTitle && oldTitle !== nextTitle) {
+        const sameTitleDocs = await req(s.documents.index('title').getAll(oldTitle));
+        const otherStillUsesOld = sameTitleDocs.some((d) => !d.deleted_at && d.id !== id);
+
+        if (!otherStillUsesOld) {
+          const linkRows = await req(s.block_links.index('target_id').getAll(oldTitle));
+          const wikiLinkRows = linkRows.filter((r) => r.link_type === 'wiki');
+
+          for (const linkRow of wikiLinkRows) {
+            const blk = await req(s.blocks.get(linkRow.source_id));
+            if (!blk || blk.deleted_at) continue;
+
+            const replaced = replaceWikiLinkInBlock(blk, oldTitle, nextTitle);
+            if (!replaced) continue;
+
+            const dataChanged = replaced.data_json !== (blk.data_json ?? null);
+            s.blocks.put({
+              ...blk,
+              text: replaced.text,
+              data_json: replaced.data_json,
+              updated_at: now,
+            });
+
+            const payload = { text: replaced.text };
+            if (dataChanged) payload.data_json = replaced.data_json;
+            s.operations.put(makeOperation('block', blk.id, 'block_update', payload, now));
+
+            const existingLinks = await req(s.block_links.index('source_id').getAll(blk.id));
+            existingLinks.forEach((r) => {
+              s.block_links.delete([r.source_id, r.target_id, r.link_type]);
+            });
+            wikiTargetsFromText(replaced.text).forEach((t) => {
+              s.block_links.put({ source_id: blk.id, target_id: t, link_type: 'wiki' });
+            });
+            tagTargetsFromText(replaced.text).forEach((t) => {
+              s.block_links.put({ source_id: blk.id, target_id: t, link_type: 'tag' });
+            });
+
+            if (blk.document_id) {
+              touchedDocIds.add(blk.document_id);
+              touchedBlockDocIds.add(blk.document_id);
+            }
+          }
+        }
+      }
+
+      return true;
+    },
+  );
+
   if (changed) {
-    emit('documents-changed', { documentIds: new Set([id]) });
-    emitLocal(id);
+    emit('documents-changed', { documentIds: touchedDocIds });
+    if (touchedBlockDocIds.size) {
+      emit('blocks-changed', { documentIds: touchedBlockDocIds });
+    }
+    emitLocal([...touchedDocIds]);
   }
   return changed;
 }
