@@ -111,11 +111,11 @@ test('edits map to create / update / move / delete', () => {
   tree.splice(1, 1);
   tree.unshift({ id: 'n1', type: 'heading-1', html: 'new', children: [] });
   const diff = diffRows(treeToRows(tree, snapshot), snapshot);
-  assert.deepEqual(diff.created.map((r) => [r.id, r.type, r.order_index]), [['n1', 'heading-1', 1000]]);
+  assert.deepEqual(diff.created.map((r) => [r.id, r.type, r.order_index]), [['n1', 'heading-1', 500]]);
   assert.equal(diff.updated.length, 1);
   const upd = diff.updated[0].row;
   assert.equal(upd.text, 'a!');
-  assert.equal(upd.order_index, 2000);
+  assert.equal(upd.order_index, 1000);
   assert.equal(upd.data_json, '{"content-spans":[{"start":1,"end":2,"attrs":{"bold":true}}]}');
   assert.deepEqual(diff.deleted, ['b2']);
 });

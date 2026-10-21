@@ -23,5 +23,14 @@ export default defineConfig({
   },
   build: {
     target: 'es2020',
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('flexsearch')) return 'vendor-search';
+          if (id.includes('mgl-web-ime')) return 'vendor-ime';
+          if (id.includes('block-editor') || id.includes('mgl-common-ui')) return 'vendor-ui';
+        },
+      },
+    },
   },
 });

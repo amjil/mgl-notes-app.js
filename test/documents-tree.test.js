@@ -26,3 +26,21 @@ test('buildDocumentForest treats missing parent as root', () => {
   assert.equal(forest[0].doc.id, 'x');
   assert.equal(forest[0].depth, 0);
 });
+
+test('buildDocumentForest breaks parent cycles without stack overflow', () => {
+  const docs = [
+    { id: 'a', title: 'A', parent_id: 'b', edited_at: '2026-01-01', updated_at: '2026-01-01' },
+    { id: 'b', title: 'B', parent_id: 'a', edited_at: '2026-01-02', updated_at: '2026-01-02' },
+  ];
+  const forest = buildDocumentForest(docs);
+  const ids = new Set();
+  const walk = (nodes) => {
+    for (const n of nodes) {
+      assert.equal(ids.has(n.doc.id), false);
+      ids.add(n.doc.id);
+      walk(n.children);
+    }
+  };
+  walk(forest);
+  assert.equal(ids.size, 2);
+});
