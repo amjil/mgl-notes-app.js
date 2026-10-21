@@ -80,6 +80,18 @@ function emitAssetChange() {
   emit('local-change', { documentIds: new Set() });
 }
 
+/** 清理所有缓存的 ObjectURL，防止内存泄漏 */
+export function clearAssetUrlCache() {
+  for (const [, url] of urlCache.entries()) {
+    try {
+      URL.revokeObjectURL(url);
+    } catch {
+      /* ignore */
+    }
+  }
+  urlCache.clear();
+}
+
 export function cachedAssetUrl(assetId) {
   return assetId ? (urlCache.get(assetId) || null) : null;
 }

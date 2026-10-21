@@ -484,11 +484,25 @@ export async function applyBlockChanges(documentId, { created = [], updated = []
   if (!created.length && !updated.length && !deleted.length) return false;
   const now = nowIso();
   const updates = [...updated];
+  const assetIdsToDelete = [];
 
-  await transaction(['documents', 'blocks', 'operations'], 'readwrite', async (s) => {
+  await transaction(['documents', 'blocks', 'operations', 'assets'], 'readwrite', async (s) => {
     for (const id of deleted) {
       const existing = await req(s.blocks.get(id));
       if (!existing || existing.deleted_at) continue;
+
+      if (existing.type === 'image' && existing.data_json) {
+        const assetId = decodeDataJson(existing.data_json)?.data?.['asset-id'];
+        if (assetId) {
+          assetIdsToDelete.push(assetId);
+          const assetRow = await req(s.assets.get(assetId));
+          if (assetRow) {
+            s.assets.put({ ...assetRow, deleted_at: now, upload_status: 'deleted' });
+          }
+          s.operations.put(makeOperation('asset', assetId, 'asset_delete', { deleted_at: now }, now));
+        }
+      }
+
       s.blocks.put({ ...existing, deleted_at: now, updated_at: now });
       s.operations.put(makeOperation('block', id, 'block_delete', { deleted_at: now }, now));
     }
@@ -563,6 +577,14 @@ export async function applyBlockChanges(documentId, { created = [], updated = []
     const doc = await req(s.documents.get(documentId));
     if (doc) s.documents.put({ ...doc, edited_at: now });
   });
+
+  for (const aid of assetIdsToDelete) {
+    try {
+      await deleteAsset(aid);
+    } catch {
+      /* ignore */
+    }
+  }
 
   emitLocal(documentId);
   return true;

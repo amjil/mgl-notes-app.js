@@ -31,6 +31,7 @@ import { mountReview } from './pages/review.js';
 import { mountImeDev } from './pages/ime-dev.js';
 import { applyPrefs } from './prefs.js';
 import { initPwa } from './pwa.js';
+import { clearAssetUrlCache } from './services/assets.js';
 
 const app = document.getElementById('app');
 
@@ -99,6 +100,7 @@ async function enterApp() {
 function leaveApp() {
   stopSync();
   closeSearch();
+  clearAssetUrlCache();
   closeDatabase();
   shell?.destroy?.();
   shell = null;
