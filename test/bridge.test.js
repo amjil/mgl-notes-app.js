@@ -53,17 +53,18 @@ test('rows → tree honours parent_id and order_index; todo → task', () => {
     row({ id: 'orphan', parent_id: 'missing' }),
   ];
   const { tree, snapshot } = rowsToTree(rows);
-  assert.deepEqual(tree.map((n) => n.id), ['b1', 'b2']);
+  assert.deepEqual(tree.map((n) => n.id), ['b1', 'orphan', 'b2']);
   assert.equal(tree[0].children[0].type, 'task');
   assert.equal(tree[0].children[0].checked, true);
-  assert.equal(snapshot.has('orphan'), false);
+  assert.equal(tree.some((n) => n.id === 'orphan'), true);
+  assert.equal(snapshot.has('orphan'), true);
 });
 
 test('unchanged tree produces no diff (Flutter data_json bytes kept)', () => {
   const rows = [
     row({ id: 'b1', text: 'ᠠᠪ', data_json: '{"content-spans":[{"attrs":{"bold":true},"end":1,"start":0}]}' }),
     row({ id: 'c1', parent_id: 'b1', type: 'todo', text: 't', data_json: '{"data":{}}' }),
-    row({ id: 't1', order_index: 2000, type: 'table', data_json: '{"data":{"col-count":2,"row-count":2,"cells":{"0,0":"ᠠ"}}}' }),
+    row({ id: 't1', order_index: 2000, type: 'table', text: 'ᠠ', data_json: '{"data":{"col-count":2,"row-count":2,"cells":{"0,0":"ᠠ"}}}' }),
     row({ id: 'img', order_index: 3000, type: 'image', text: '', data_json: '{"data":{"asset-id":"a1"}}' }),
   ];
   const { tree, snapshot } = rowsToTree(rows);
@@ -100,7 +101,7 @@ test('image and bookmark round-trip through data_json', () => {
   const img = diff.updated.find((u) => u.row.id === 'img').row;
   const bm = diff.updated.find((u) => u.row.id === 'bm').row;
   assert.match(img.data_json, /"width":200/);
-  assert.equal(bm.text, 'Changed');
+  assert.equal(bm.text, 'Changed d https://example.com');
   assert.match(bm.data_json, /"title":"Changed"/);
 });
 
@@ -126,4 +127,50 @@ test('task rows always carry {"data":{}} like Flutter', () => {
   assert.equal(r.type, 'todo');
   assert.equal(r.checked, true);
   assert.equal(r.data_json, '{"data":{}}');
+});
+
+test('rowsToTree promotes orphan blocks whose parent is missing to root', () => {
+  const rows = [
+    { id: 'b1', parent_id: 'missing-parent', type: 'paragraph', text: 'orphan text', order_index: 1000 },
+  ];
+  const { tree, snapshot } = rowsToTree(rows);
+  assert.equal(tree.length, 1);
+  assert.equal(tree[0].id, 'b1');
+  assert.equal(snapshot.has('b1'), true);
+});
+
+test('treeToRows persists collapsed state and extracts searchable text from table', () => {
+  const doc = new JSDOM('').window.document;
+  const tree = [
+    {
+      id: 't1',
+      type: 'table',
+      collapsed: true,
+      data: { 'col-count': 2, 'row-count': 1, cells: { '0,0': 'ᠮᠣᠩᠭᠣᠯ', '1,0': 'ᠪᠢᠴᠢᠭ' } },
+      children: [],
+    },
+  ];
+  const rows = treeToRows(tree, new Map(), doc);
+  assert.equal(rows[0].text, 'ᠮᠣᠩᠭᠣᠯ ᠪᠢᠴᠢᠭ');
+  const { tree: restored } = rowsToTree(rows);
+  assert.equal(restored[0].collapsed, true);
+});
+
+test('treeToRows interpolates order_index without shifting unchanged following siblings', () => {
+  const doc = new JSDOM('').window.document;
+  const initialRows = [
+    { id: 'a', parent_id: null, type: 'paragraph', text: 'A', order_index: 1000, data_json: null, checked: false },
+    { id: 'b', parent_id: null, type: 'paragraph', text: 'B', order_index: 2000, data_json: null, checked: false },
+  ];
+  const { tree, snapshot } = rowsToTree(initialRows);
+  // Insert new block 'x' between 'a' and 'b'
+  tree.splice(1, 0, { id: 'x', type: 'paragraph', html: 'X', text: 'X', children: [] });
+  const nextRows = treeToRows(tree, snapshot, doc);
+  const diff = diffRows(nextRows, snapshot);
+
+  assert.equal(diff.created.length, 1);
+  assert.equal(diff.created[0].id, 'x');
+  assert.equal(diff.created[0].order_index, 1500);
+  // 'b' was not modified or moved!
+  assert.equal(diff.updated.length, 0);
 });
