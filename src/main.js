@@ -6,7 +6,14 @@ import './styles/editor.css';
 
 import { initVisualViewport, install } from 'mgl-common-ui';
 import { logout } from './api/auth.js';
-import { closeDatabase, getMeta, openDatabase, setMeta } from './db/idb.js';
+import {
+  closeDatabase,
+  estimateStorageUsage,
+  getMeta,
+  isQuotaError,
+  openDatabase,
+  setMeta,
+} from './db/idb.js';
 import { reindexAllLinks } from './services/links.js';
 import { on } from './events.js';
 import { t } from './i18n.js';
@@ -34,6 +41,30 @@ import { initPwa } from './pwa.js';
 import { clearAssetUrlCache } from './services/assets.js';
 
 const app = document.getElementById('app');
+
+let lastGlobalErrAt = 0;
+
+window.addEventListener('unhandledrejection', (event) => {
+  const err = event.reason;
+  if (!err) return;
+
+  const now = Date.now();
+  if (isQuotaError(err)) {
+    event.preventDefault();
+    if (now - lastGlobalErrAt > 5000) {
+      lastGlobalErrAt = now;
+      toast(t('storageFull'), { kind: 'error', ms: 6000 });
+    }
+    return;
+  }
+
+  // 若数据库因后台回收或版本升级被意外关闭，且用户仍处于登录态，自动重连数据库
+  if (err?.message === 'Database is not open' && loggedIn()) {
+    event.preventDefault();
+    const user = currentUser();
+    if (user?.id) void openDatabase(user.id);
+  }
+});
 
 initVisualViewport();
 trackImeKeyboard();
@@ -95,6 +126,11 @@ async function enterApp() {
   }
   app.replaceChildren(shell.root);
   startSync();
+  estimateStorageUsage().then((stat) => {
+    if (stat?.nearLimit) {
+      toast(t('storageFull'), { kind: 'warn', ms: 5000 });
+    }
+  });
 }
 
 function leaveApp() {

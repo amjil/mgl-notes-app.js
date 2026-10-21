@@ -65,6 +65,7 @@ export function openDatabase(userId) {
       db = req.result;
       dbName = name;
       db.onversionchange = () => closeDatabase();
+      void requestPersistentStorage();
       resolve(db);
     };
     req.onerror = () => reject(req.error);
@@ -135,4 +136,48 @@ export async function getMeta(key, fallback = null) {
 
 export function setMeta(key, value) {
   return put('meta', { key, value });
+}
+
+/** 判断异常是否由浏览器磁盘/存储配额耗尽引起 */
+export function isQuotaError(err) {
+  if (!err) return false;
+  const name = String(err.name || '');
+  const msg = String(err.message || '');
+  return (
+    name === 'QuotaExceededError'
+    || name === 'NS_ERROR_DOM_QUOTA_REACHED'
+    || err.code === 22
+    || err.code === 1014
+    || /quota|storage full|disk full/i.test(msg)
+  );
+}
+
+/** 向浏览器申请持久化存储权限，防止移动端系统在空间不足时自动清理笔记库 */
+export async function requestPersistentStorage() {
+  try {
+    if (navigator.storage?.persist) {
+      const persisted = await navigator.storage.persisted();
+      if (!persisted) await navigator.storage.persist();
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+/** 检查当前站点存储配额使用率，返回 { usage, quota, ratio, nearLimit } */
+export async function estimateStorageUsage() {
+  try {
+    if (!navigator.storage?.estimate) return null;
+    const { usage = 0, quota = 0 } = await navigator.storage.estimate();
+    const ratio = quota > 0 ? usage / quota : 0;
+    return {
+      usage,
+      quota,
+      ratio,
+      // 使用率超过 90% 或剩余空间不足 15MB 时视为濒临上限
+      nearLimit: quota > 0 && (ratio >= 0.9 || (quota - usage) < 15 * 1024 * 1024),
+    };
+  } catch {
+    return null;
+  }
 }

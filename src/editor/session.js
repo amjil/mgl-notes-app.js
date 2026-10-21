@@ -20,8 +20,9 @@ import { attachBlockSelection } from './block-selection.js';
 import { createEditorHistory } from './history.js';
 import { decorateHost, hydrateBlockRefTitles, WIKI_SEL } from './wiki.js';
 import { attachEditorIme, commitPending } from '../ime/index.js';
+import { isQuotaError } from '../db/idb.js';
 import { onBeforePull } from '../sync/sync.js';
-import { on } from '../events.js';
+import { emit, on } from '../events.js';
 import { t } from '../i18n.js';
 import { toast } from '../ui/toast.js';
 import { debounce } from '../util.js';
@@ -56,6 +57,7 @@ export function createEditorSession(host, documentId, { focusBlockId = null } = 
   let loaded = false;
   let readOnly = false;
   let pendingFocus = focusBlockId || null;
+  let lastErrorToastAt = 0;
 
   const imeHandle = attachEditorIme(host, editor, {
     keepSelector: '.note-editor .toolbar, .wiki-ac, .sel-toolbar, .block-sel-bar',
@@ -133,6 +135,13 @@ export function createEditorSession(host, documentId, { focusBlockId = null } = 
       } catch (e) {
         dirty = true;
         console.error('[editor] persist failed', e);
+        const now = Date.now();
+        if (now - lastErrorToastAt > 6000) {
+          lastErrorToastAt = now;
+          const msg = isQuotaError(e) ? t('storageFull') : t('saveFailed');
+          toast(msg, { kind: 'error', ms: 5000 });
+          emit('sync-status', { status: 'error', message: msg });
+        }
         return false;
       }
     };
