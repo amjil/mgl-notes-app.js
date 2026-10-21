@@ -20,6 +20,7 @@ import { toWire } from './ops.js';
 
 const PAGE_SIZE = 200;
 const PUSH_BATCH = 500;
+const MAX_KEPT_SYNCED_OPS = 500;
 const PUSH_DEBOUNCE_MS = 2000;
 const PUSH_MAX_WAIT_MS = 30000;
 const PULL_INTERVAL_MS = 5 * 60 * 1000;
@@ -222,12 +223,37 @@ export function pull() {
   return withLock('pull', pullNow);
 }
 
+/** Drop old synced ops beyond {@link MAX_KEPT_SYNCED_OPS} (keeps pull cursor overlap safe). */
+export async function pruneSyncedOperations() {
+  const syncedOps = await getAllByIndex('operations', 'synced', 1);
+  if (syncedOps.length <= MAX_KEPT_SYNCED_OPS) return 0;
+
+  syncedOps.sort((a, b) => (
+    String(a.created_at || '').localeCompare(String(b.created_at || ''))
+    || (a.seq || 0) - (b.seq || 0)
+  ));
+  const toDelete = syncedOps.slice(0, syncedOps.length - MAX_KEPT_SYNCED_OPS);
+
+  await transaction('operations', 'readwrite', (s) => {
+    toDelete.forEach((op) => s.operations.delete(op.id));
+  });
+  return toDelete.length;
+}
+
 export function syncNow() {
   return withLock('sync', async () => {
     const a = await pullNow();
     const b = await pushNow();
     const pushOk = b === 'ok' || b === 'empty' || b === 'waiting-assets';
-    return a === 'ok' && pushOk ? 'ok' : b;
+    const ok = a === 'ok' && pushOk;
+    if (ok) {
+      try {
+        await pruneSyncedOperations();
+      } catch (e) {
+        console.warn('[sync] prune synced ops failed', e);
+      }
+    }
+    return ok ? 'ok' : b;
   });
 }
 
