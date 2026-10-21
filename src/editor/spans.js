@@ -2,7 +2,7 @@
  * Inline formatting ↔ Flutter `content-spans`.
  *
  * Flutter (rich-editor.model.delta) keeps plain `content` plus
- *   [{ start, end, attrs: { bold, italic, underline, strikethrough, link } }]
+ *   [{ start, end, attrs: { bold, italic, underline, strikethrough, link, code } }]
  * with UTF-16 offsets — the same units as JS string indices.
  * The web editor keeps HTML in each contenteditable block.
  */
@@ -20,6 +20,7 @@ const TAG_ATTRS = {
   S: { strikethrough: true },
   STRIKE: { strikethrough: true },
   DEL: { strikethrough: true },
+  CODE: { code: true },
 };
 
 const BLOCK_TAGS = new Set(['DIV', 'P', 'LI', 'H1', 'H2', 'H3', 'BLOCKQUOTE']);
@@ -129,6 +130,7 @@ export function normalizeSpans(text, spans) {
 
 function wrap(html, attrs) {
   let out = html;
+  if (attrs.code) out = `<code>${out}</code>`;
   if (attrs.strikethrough) out = `<s>${out}</s>`;
   if (attrs.underline) out = `<u>${out}</u>`;
   if (attrs.italic) out = `<i>${out}</i>`;

@@ -8,6 +8,8 @@ const FONT_KEY = 'mgl.fontScale';
 const IME_KEY = 'mgl.imeDefault';
 const DAILY_TEMPLATE_KEY = 'mgl.dailyTemplate';
 const THEME_KEY = 'mgl.theme'; // 'auto' | 'light' | 'dark'
+const THEME_COLOR_LIGHT = '#f4efe4';
+const THEME_COLOR_DARK = '#141816';
 const darkMq = globalThis.matchMedia?.('(prefers-color-scheme: dark)');
 
 export function fontScale() {
@@ -77,7 +79,20 @@ export function setTheme(mode) {
 
 export function applyTheme(mode = theme()) {
   const isDark = mode === 'dark' || (mode === 'auto' && Boolean(darkMq?.matches));
-  document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
+  const root = globalThis.document?.documentElement;
+  if (root) {
+    root.dataset.theme = isDark ? 'dark' : 'light';
+  }
+
+  const metaTheme = globalThis.document?.querySelector?.('meta[name="theme-color"]');
+  if (metaTheme) {
+    metaTheme.setAttribute('content', isDark ? THEME_COLOR_DARK : THEME_COLOR_LIGHT);
+  }
+
+  const metaStatusBar = globalThis.document?.querySelector?.('meta[name="apple-mobile-web-app-status-bar-style"]');
+  if (metaStatusBar) {
+    metaStatusBar.setAttribute('content', isDark ? 'black-translucent' : 'default');
+  }
 }
 
 darkMq?.addEventListener?.('change', () => {

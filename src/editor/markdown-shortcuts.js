@@ -19,6 +19,7 @@ const PREFIX_RULES = [
   { re: /^\[x\]\s$/i, type: 'task', checked: true },
   { re: /^>\s$/, type: 'blockquote' },
   { re: /^---$/, type: 'divider' },
+  { re: /^```\s?$/, type: 'code' },
 ];
 
 export function attachMarkdownShortcuts(host, editor) {

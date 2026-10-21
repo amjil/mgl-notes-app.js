@@ -81,6 +81,44 @@ export function attachSelectionToolbar(host, { isReadOnly = () => false } = {}) 
       return btn;
     });
 
+    const codeBtn = document.createElement('button');
+    codeBtn.type = 'button';
+    codeBtn.className = 'sel-toolbar__btn';
+    codeBtn.dataset.action = 'code';
+    codeBtn.title = 'Code';
+    codeBtn.textContent = '<>';
+    codeBtn.addEventListener('mousedown', (e) => e.preventDefault());
+    codeBtn.addEventListener('click', () => {
+      const sel = selectionInHost(host);
+      if (!sel) return;
+      const range = sel.getRangeAt(0);
+      const parentCode = (range.commonAncestorContainer.nodeType === 1
+        ? range.commonAncestorContainer
+        : range.commonAncestorContainer.parentElement)?.closest?.('code');
+
+      if (parentCode && host.contains(parentCode)) {
+        const text = document.createTextNode(parentCode.textContent || '');
+        parentCode.replaceWith(text);
+        const nextRange = document.createRange();
+        nextRange.selectNodeContents(text);
+        sel.removeAllRanges();
+        sel.addRange(nextRange);
+      } else {
+        const codeEl = document.createElement('code');
+        codeEl.textContent = range.toString();
+        range.deleteContents();
+        range.insertNode(codeEl);
+        const nextRange = document.createRange();
+        nextRange.selectNodeContents(codeEl);
+        sel.removeAllRanges();
+        sel.addRange(nextRange);
+      }
+      host.dispatchEvent(new Event('input', { bubbles: true }));
+      schedule();
+    });
+    group.append(codeBtn);
+    buttons.push(codeBtn);
+
     const linkBtn = document.createElement('button');
     linkBtn.type = 'button';
     linkBtn.className = 'sel-toolbar__btn';

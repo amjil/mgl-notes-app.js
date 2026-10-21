@@ -16,7 +16,7 @@ export const PLACEHOLDER_TYPE = 'unsupported';
 export const EDITABLE_TYPES = new Set([
   'paragraph', 'heading-1', 'heading-2', 'heading-3',
   'list-item', 'ordered-list-item', 'task', 'blockquote',
-  'callout', 'toggle', 'divider', 'table', 'image', 'bookmark', 'flashcard',
+  'callout', 'toggle', 'divider', 'table', 'image', 'bookmark', 'flashcard', 'code',
 ]);
 
 const ATOMIC_TEXTLESS = new Set(['divider', 'table', 'image']);
@@ -121,6 +121,10 @@ export function rowToNode(row) {
     };
     node.html = '';
     node.text = row.text || node.data.front || '';
+  } else if (type === 'code') {
+    node.data = { ...(extra.data || {}) };
+    node.html = '';
+    node.text = row.text || '';
   } else if (type === 'divider') {
     node.html = '';
   } else {
@@ -196,6 +200,8 @@ export function nodeToRow(node, parentId, orderIndex, prev, doc = globalThis.doc
     text = (node.data && node.data.title) || node.text || '';
   } else if (type === 'flashcard') {
     text = (node.data && node.data.front) || node.text || '';
+  } else if (type === 'code') {
+    text = node.text || '';
   } else {
     const rich = htmlToRich(node.html || '', doc);
     text = rich.text;
@@ -209,9 +215,9 @@ export function nodeToRow(node, parentId, orderIndex, prev, doc = globalThis.doc
     delete rest.checked;
     data = rest;
     alwaysData = true;
-  } else if (type === 'table' || type === 'image' || type === 'bookmark' || type === 'flashcard') {
+  } else if (type === 'table' || type === 'image' || type === 'bookmark' || type === 'flashcard' || type === 'code') {
     data = { ...(prevData || {}), ...(node.data || {}) };
-    alwaysData = type === 'image' || type === 'bookmark' || type === 'flashcard';
+    alwaysData = type === 'image' || type === 'bookmark' || type === 'flashcard' || type === 'code';
   }
 
   let dataJson = encodeExtra(data, spans, alwaysData);

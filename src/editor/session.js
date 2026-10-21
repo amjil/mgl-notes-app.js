@@ -12,6 +12,7 @@ import { createPlaceholderPlugin } from './placeholder.js';
 import { createImagePlugin, pickImageFile, setPendingImageData } from './image.js';
 import { createBookmarkPlugin, promptBookmark, setPendingBookmark } from './bookmark.js';
 import { createFlashcardPlugin } from './flashcard.js';
+import { createCodeBlockPlugin } from './code.js';
 import { attachAutocomplete } from './autocomplete.js';
 import { attachMarkdownShortcuts } from './markdown-shortcuts.js';
 import { attachSelectionToolbar } from './selection-toolbar.js';
@@ -38,6 +39,7 @@ export function createEditorSession(host, documentId, { focusBlockId = null } = 
       createImagePlugin(),
       createBookmarkPlugin(),
       createFlashcardPlugin(),
+      createCodeBlockPlugin(),
     ],
     onChange: () => {
       if (decorating || history?.isApplying()) return;
@@ -376,7 +378,7 @@ export function createEditorSession(host, documentId, { focusBlockId = null } = 
     host.querySelectorAll('.block-content').forEach((el) => {
       const type = el.closest('.block-wrapper')?.dataset.blockType;
       const atomic = type === 'image' || type === 'divider' || type === 'bookmark'
-        || type === 'flashcard' || type === 'table' || type === 'unsupported';
+        || type === 'flashcard' || type === 'table' || type === 'code' || type === 'unsupported';
       if (atomic) {
         el.contentEditable = 'false';
         return;
@@ -385,6 +387,12 @@ export function createEditorSession(host, documentId, { focusBlockId = null } = 
     });
     host.querySelectorAll('.mgl-flashcard__field').forEach((el) => {
       el.contentEditable = readOnly ? 'false' : 'true';
+    });
+    host.querySelectorAll('.mgl-code-block__pre').forEach((el) => {
+      el.contentEditable = readOnly ? 'false' : 'true';
+    });
+    host.querySelectorAll('.mgl-code-block__lang').forEach((el) => {
+      el.disabled = readOnly;
     });
   }
 
