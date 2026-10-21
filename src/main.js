@@ -71,7 +71,7 @@ trackImeKeyboard();
 applyPrefs();
 initPwa();
 installCommandShortcuts();
-install({ selector: '.mn-surface', keyboard: false, drag: false });
+install({ selector: '.mn-surface', keyboard: false, drag: false, historySwipe: false });
 
 const PAGES = {
   today: mountToday,

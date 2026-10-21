@@ -1,4 +1,4 @@
-import { PLACEHOLDER_TYPE } from './bridge.js';
+import { UNSUPPORTED_TYPE } from './bridge.js';
 import { t } from '../i18n.js';
 
 const CSS = `
@@ -32,7 +32,7 @@ const CSS = `
  */
 export function createPlaceholderPlugin() {
   return {
-    type: PLACEHOLDER_TYPE,
+    type: UNSUPPORTED_TYPE,
     label: false,
     atomic: true,
     css: CSS,

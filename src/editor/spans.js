@@ -108,6 +108,11 @@ export function htmlToRich(html, doc = globalThis.document) {
   return { text, spans: runsToSpans(runs) };
 }
 
+/** Clamp span ranges to text length and normalise to canonical form. */
+export function clampSpans(text, spans) {
+  return normalizeSpans(text, spans);
+}
+
 /** Normalise any spans (overlapping, unsorted, split) into the canonical form. */
 export function normalizeSpans(text, spans) {
   const len = String(text || '').length;
