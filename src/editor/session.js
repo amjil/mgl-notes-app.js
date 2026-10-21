@@ -16,6 +16,7 @@ import { attachAutocomplete } from './autocomplete.js';
 import { attachMarkdownShortcuts } from './markdown-shortcuts.js';
 import { attachSelectionToolbar } from './selection-toolbar.js';
 import { attachBlockSelection } from './block-selection.js';
+import { createEditorHistory } from './history.js';
 import { decorateHost, hydrateBlockRefTitles, WIKI_SEL } from './wiki.js';
 import { attachEditorIme, commitPending } from '../ime/index.js';
 import { onBeforePull } from '../sync/sync.js';
@@ -29,6 +30,7 @@ const DECORATE_MS = 120;
 
 export function createEditorSession(host, documentId, { focusBlockId = null } = {}) {
   host.classList.add('note-editor');
+  let history;
   const editor = createBlockEditor(host, {
     mode: 'notes',
     plugins: [
@@ -38,9 +40,10 @@ export function createEditorSession(host, documentId, { focusBlockId = null } = 
       createFlashcardPlugin(),
     ],
     onChange: () => {
-      if (decorating) return;
+      if (decorating || history?.isApplying()) return;
       markDirty();
       scheduleDecorate();
+      history?.scheduleRecord();
     },
   });
   let snapshot = new Map();
@@ -54,6 +57,17 @@ export function createEditorSession(host, documentId, { focusBlockId = null } = 
 
   const imeHandle = attachEditorIme(host, editor, {
     keepSelector: '.note-editor .toolbar, .wiki-ac, .sel-toolbar, .block-sel-bar',
+  });
+  history = createEditorHistory(host, editor, {
+    isReadOnly: () => readOnly,
+    isImeComposing: () => {
+      const s = imeHandle.ime?.getState?.();
+      return Boolean(s && (s.composition || (s.candidates?.length ?? 0) > 0));
+    },
+    onRestore: () => {
+      imeHandle.refresh();
+      markDirty();
+    },
   });
   const ac = attachAutocomplete(host);
   const md = attachMarkdownShortcuts(host, editor);
@@ -153,6 +167,7 @@ export function createEditorSession(host, documentId, { focusBlockId = null } = 
     applyReadOnly();
     decorateHost(host);
     void hydrateBlockRefTitles(host);
+    history.resetBaseline();
     imeHandle.refresh();
     if (scroller) scroller.scrollLeft = scrollLeft;
     if (activeId) {
@@ -335,7 +350,7 @@ export function createEditorSession(host, documentId, { focusBlockId = null } = 
   };
   host.addEventListener('keydown', onBlockMoveKey);
 
-  decorateToolbar(host, editor, insertImageFromFile);
+  decorateToolbar(host, editor, history, insertImageFromFile);
 
   const offPull = onBeforePull(() => flush());
   const offRemote = on('blocks-changed', ({ documentIds }) => {
@@ -417,12 +432,13 @@ export function createEditorSession(host, documentId, { focusBlockId = null } = 
       selBar.destroy();
       blockSel.destroy();
       imeHandle.destroy();
+      history.destroy();
       host.replaceChildren();
     },
   };
 }
 
-function decorateToolbar(host, editor, insertImageFromFile) {
+function decorateToolbar(host, editor, history, insertImageFromFile) {
   const toolbar = host.querySelector('.toolbar');
   if (!toolbar) return;
 
@@ -457,7 +473,10 @@ function decorateToolbar(host, editor, insertImageFromFile) {
     btn.title = title;
     btn.textContent = label;
     btn.addEventListener('mousedown', (e) => e.preventDefault());
-    btn.addEventListener('click', () => document.execCommand(cmd));
+    btn.addEventListener('click', () => {
+      if (cmd === 'undo') history.undo();
+      else history.redo();
+    });
     group.append(btn);
   });
   const sep = document.createElement('div');
