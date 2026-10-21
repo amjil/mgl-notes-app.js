@@ -40,7 +40,7 @@ function stripHashQueryParam(key) {
 }
 
 /** Documents list: forest by parent_id; columns run left → right. */
-export function mountDocuments(container, { query = {} } = {}) {
+export function mountDocuments(container, { query = {}, name } = {}) {
   const type = query.type || '';
   const list = h('div', { class: 'doc-list doc-tree' });
   const selected = new Set();
@@ -380,7 +380,7 @@ export function mountDocuments(container, { query = {} } = {}) {
 
   const off = on('documents-changed', render);
 
-  if (query.search === '1' || query.q) openSearchPanel();
+  if (query.search === '1' || query.q || name === 'search') openSearchPanel();
   render();
 
   return {

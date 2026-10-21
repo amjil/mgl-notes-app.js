@@ -36,10 +36,12 @@ function groupMentions(rows) {
 }
 
 function openDoc(group) {
+  const first = group.mentions?.[0];
+  const blockQ = first?.blockId ? `?block=${encodeURIComponent(first.blockId)}` : '';
   if (group.type === 'daily' || DATE_TITLE.test(group.title)) {
-    navigate(`/today/${encodeURIComponent(group.title)}`);
+    navigate(`/today/${encodeURIComponent(group.title)}${blockQ}`);
   } else {
-    navigate(`/doc/${group.documentId}`);
+    navigate(`/doc/${group.documentId}${blockQ}`);
   }
 }
 

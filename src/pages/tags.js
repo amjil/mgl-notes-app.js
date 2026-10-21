@@ -10,10 +10,12 @@ const DATE_TITLE = /^\d{4}-\d{2}-\d{2}$/;
 const SNIP_RADIUS = 12;
 
 function openHref(group) {
+  const first = group.mentions?.[0];
+  const blockQ = first?.blockId ? `?block=${encodeURIComponent(first.blockId)}` : '';
   if (group.type === 'daily' || DATE_TITLE.test(group.title)) {
-    return `#/today/${encodeURIComponent(group.title)}`;
+    return `#/today/${encodeURIComponent(group.title)}${blockQ}`;
   }
-  return `#/doc/${group.documentId}`;
+  return `#/doc/${group.documentId}${blockQ}`;
 }
 
 function snippetEl(tag, mention) {

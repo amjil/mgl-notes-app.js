@@ -253,6 +253,23 @@
   color: var(--app-danger, #c44);
 }
 
+/* Deep-link flash when opening ?block=… */
+@keyframes block-flash {
+  0%, 25% {
+    background: color-mix(in srgb, var(--app-accent) 28%, transparent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--app-accent) 45%, transparent);
+  }
+  100% {
+    background: transparent;
+    box-shadow: none;
+  }
+}
+
+.note-editor .block-wrapper.is-block-flash {
+  border-radius: 0.35rem;
+  animation: block-flash 1.6s ease-out;
+}
+
 .note-editor .block-wrapper.is-block-selected {
   outline: 2px solid var(--app-accent);
   outline-offset: 2px;

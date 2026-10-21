@@ -62,9 +62,10 @@ export function mountTasks(container, { query = {} } = {}) {
   function taskCard(task, rawQuery) {
     const isDaily = task.docType === 'daily';
     const docTitle = task.docTitle || t('untitled');
+    const blockQ = `?block=${encodeURIComponent(task.id)}`;
     const href = isDaily
-      ? `#/today/${encodeURIComponent(task.docTitle)}`
-      : `#/doc/${task.documentId}`;
+      ? `#/today/${encodeURIComponent(task.docTitle)}${blockQ}`
+      : `#/doc/${task.documentId}${blockQ}`;
 
     const textEl = h('span', {
       class: `doc-card__title task-card__text${task.checked ? ' is-checked' : ''}${task.text ? '' : ' is-untitled'}`,

@@ -16,6 +16,18 @@ export function mountNoteView(container, { head, documentId, focusBlockId = null
   const scroller = editorHost.querySelector('.editor-content');
   let reading = false;
 
+  // Deep-link ?block=… → scroll the vertical column into view and flash it.
+  session.ready.then(() => {
+    if (!focusBlockId) return;
+    const target = editorHost.querySelector(
+      `.block-wrapper[data-block-id="${CSS.escape(focusBlockId)}"]`,
+    );
+    if (!target) return;
+    target.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    target.classList.add('is-block-flash');
+    setTimeout(() => target.classList.remove('is-block-flash'), 1600);
+  });
+
   // mgl-common-ui leaves editable surfaces alone, so map the vertical wheel here.
   const onWheel = (e) => {
     if (e.ctrlKey || e.shiftKey || !scroller) return;

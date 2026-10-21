@@ -6,7 +6,7 @@
  *   #/tasks
  *   #/review
  *   #/tags  #/tags/:tag
- *   #/search
+ *   #/search  (alias → documents, opens search panel)
  *   #/trash
  *   #/settings
  *   #/ime-dev  (dev build only — IME user overlay tester)
