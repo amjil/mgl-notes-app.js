@@ -2,7 +2,7 @@
  * Hash router.
  *   #/login  #/register
  *   #/today  #/today/YYYY-MM-DD
- *   #/documents  #/documents?type=daily|normal
+ *   #/documents  (default type=normal)  #/documents?type=all|daily|normal
  *   #/tasks
  *   #/review
  *   #/tags  #/tags/:tag

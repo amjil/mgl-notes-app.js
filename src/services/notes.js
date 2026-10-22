@@ -112,35 +112,45 @@ function sortKey(doc) {
 /**
  * Build a forest from a flat document list using `parent_id`.
  * Orphans (missing / filtered-out parent) become roots.
- * @returns {{ doc: object, depth: number, children: object[] }[]}
+ * Each node carries `treeKey`: max edited time in its subtree (for root / sibling sort).
+ * @returns {{ doc: object, depth: number, children: object[], treeKey: string }[]}
  */
 export function buildDocumentForest(docs) {
   const list = Array.isArray(docs) ? docs : [];
   const byId = new Map(list.map((d) => [d.id, d]));
   /** @type {Map<string|null, object[]>} */
   const kids = new Map();
+
   for (const d of list) {
     const raw = d.parent_id || null;
     const pid = (raw && raw !== d.id && byId.has(raw)) ? raw : null;
     if (!kids.has(pid)) kids.set(pid, []);
     kids.get(pid).push(d);
   }
-  const byTime = (a, b) => sortKey(b).localeCompare(sortKey(a));
-  for (const group of kids.values()) group.sort(byTime);
 
   const visited = new Set();
-  function node(doc, depth) {
+  function buildNode(doc, depth) {
     visited.add(doc.id);
     const children = (kids.get(doc.id) || [])
       .filter((c) => !visited.has(c.id))
-      .map((c) => node(c, depth + 1));
-    return { doc, depth, children };
+      .map((c) => buildNode(c, depth + 1));
+
+    let treeKey = sortKey(doc);
+    for (const c of children) {
+      if (c.treeKey > treeKey) treeKey = c.treeKey;
+    }
+    children.sort((a, b) => b.treeKey.localeCompare(a.treeKey));
+
+    return { doc, depth, children, treeKey };
   }
 
-  const roots = (kids.get(null) || []).map((d) => node(d, 0));
+  const roots = (kids.get(null) || []).map((d) => buildNode(d, 0));
   for (const d of list) {
-    if (!visited.has(d.id)) roots.push(node(d, 0));
+    if (!visited.has(d.id)) {
+      roots.push(buildNode(d, 0));
+    }
   }
+  roots.sort((a, b) => b.treeKey.localeCompare(a.treeKey));
   return roots;
 }
 

@@ -22,6 +22,9 @@ const FILTERS = [
   { id: 'daily', label: () => t('daily') },
 ];
 
+const ROOT_PAGE_SIZE = 40;
+const CHILD_PAGE_SIZE = 30;
+
 function shortDate(iso) {
   if (!iso) return '';
   const d = new Date(iso);
@@ -41,18 +44,29 @@ function stripHashQueryParam(key) {
 }
 
 /** Documents list: forest by parent_id; columns run left → right. */
+/** Document list filter: omit `type` in URL → normal; `type=all` → every type. */
+function resolveDocumentListType(query = {}) {
+  if (query.type === 'all') return '';
+  if (query.type != null && query.type !== '') return query.type;
+  return 'normal';
+}
+
 export function mountDocuments(container, { query = {}, name } = {}) {
-  const type = query.type || '';
+  const type = resolveDocumentListType(query);
   const list = h('div', { class: 'doc-list doc-tree' });
   const selected = new Set();
   /** Document ids whose child lists are expanded (default: collapsed). */
   const expanded = new Set();
+  /** Per-parent cap on visible children when expanded (default CHILD_PAGE_SIZE). */
+  const childLimits = new Map();
   let selecting = false;
   let docsCache = [];
+  let forestCache = [];
+  let renderedRootCount = 0;
 
   const filters = h('div', { class: 'page-head__group' }, FILTERS.map((f) => h('a', {
     class: `chip${f.id === type ? ' is-active' : ''}`,
-    href: f.id ? `#/documents?type=${f.id}` : '#/documents',
+    href: f.id ? `#/documents?type=${f.id}` : '#/documents?type=all',
   }, f.label())));
 
   const newBtn = h('button', {
@@ -88,7 +102,7 @@ export function mountDocuments(container, { query = {}, name } = {}) {
       if (!selecting) selected.clear();
       selectBtn.classList.toggle('is-active', selecting);
       selectBtn.textContent = selecting ? t('clearSelection') : t('select');
-      render();
+      rerenderVisibleTree();
     },
   }, t('select'));
 
@@ -174,9 +188,15 @@ export function mountDocuments(container, { query = {}, name } = {}) {
     selectBtn,
     filters);
 
-  const body = h('section', { class: 'page mn-surface note-view__body' },
+  const scroller = h('section', { class: 'page mn-surface note-view__body' },
     h('div', { class: 'page-inner mn-columns' }, list));
-  container.replaceChildren(h('div', { class: 'note-view' }, head, body), batchBar);
+
+  const sentinel = h('div', {
+    class: 'doc-list__sentinel',
+    style: 'inline-size: 1px; block-size: 24px; flex: 0 0 auto;',
+  });
+
+  container.replaceChildren(h('div', { class: 'note-view' }, head, scroller), batchBar);
 
   const ime = attachFieldIme(searchInput);
   let searchSeq = 0;
@@ -195,7 +215,7 @@ export function mountDocuments(container, { query = {}, name } = {}) {
         class: 'btn btn--ghost batch-bar__btn',
         onclick: () => {
           docsCache.forEach((d) => selected.add(d.id));
-          render();
+          rerenderVisibleTree();
         },
       }, t('selectAll')),
       h('button', {
@@ -214,7 +234,7 @@ export function mountDocuments(container, { query = {}, name } = {}) {
           selecting = false;
           selectBtn.classList.remove('is-active');
           selectBtn.textContent = t('select');
-          render();
+          void render();
         },
       }, t('batchDelete')),
     );
@@ -259,7 +279,7 @@ export function mountDocuments(container, { query = {}, name } = {}) {
       ? h('button', {
         type: 'button',
         class: 'doc-card__open',
-        onclick: () => { toggleSelect(doc.id); render(); },
+        onclick: () => { toggleSelect(doc.id); rerenderVisibleTree(); },
       },
         h('span', { class: `doc-card__check${isSelected ? ' is-on' : ''}`, 'aria-hidden': 'true' }, isSelected ? '✓' : ''),
         h('span', { class: `doc-card__title${doc.title ? '' : ' is-untitled'}` }, title),
@@ -321,7 +341,7 @@ export function mountDocuments(container, { query = {}, name } = {}) {
           e.stopPropagation();
           if (expanded.has(node.doc.id)) expanded.delete(node.doc.id);
           else expanded.add(node.doc.id);
-          void render();
+          wrapperEl.replaceWith(renderNode(node));
         },
       },
         h('span', { class: 'doc-tree__toggle-icon mn-upright', 'aria-hidden': 'true' }, isOpen ? '‹' : '›'),
@@ -330,14 +350,65 @@ export function mountDocuments(container, { query = {}, name } = {}) {
           : h('span', { class: 'doc-tree__toggle-count mn-upright' }, String(childCount)))
       : null;
 
-    const kids = childCount && isOpen
-      ? h('div', { class: 'doc-tree__children' }, ...node.children.map(renderNode))
-      : null;
+    let kids = null;
+    if (childCount && isOpen) {
+      const limit = childLimits.get(node.doc.id) || CHILD_PAGE_SIZE;
+      const visibleChildren = node.children.slice(0, limit);
+      const remaining = childCount - visibleChildren.length;
 
-    return h('div', {
+      const moreKidsBtn = remaining > 0
+        ? h('button', {
+          type: 'button',
+          class: 'btn btn--ghost',
+          onclick: (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            childLimits.set(node.doc.id, limit + CHILD_PAGE_SIZE);
+            wrapperEl.replaceWith(renderNode(node));
+          },
+        }, `+${remaining} ${t('more')}`)
+        : null;
+
+      kids = h('div', { class: 'doc-tree__children' },
+        ...visibleChildren.map(renderNode),
+        moreKidsBtn);
+    }
+
+    const wrapperEl = h('div', {
       class: `doc-tree__node${isOpen ? '' : ' is-collapsed'}`,
       dataset: { depth: String(node.depth) },
     }, renderCard(node.doc, { toggle }), kids);
+
+    return wrapperEl;
+  }
+
+  function appendNextRootPage() {
+    if (renderedRootCount >= forestCache.length) {
+      sentinel.remove();
+      return;
+    }
+    const nextSlice = forestCache.slice(renderedRootCount, renderedRootCount + ROOT_PAGE_SIZE);
+    renderedRootCount += nextSlice.length;
+    sentinel.remove();
+    list.append(...nextSlice.map(renderNode));
+    if (renderedRootCount < forestCache.length) {
+      list.append(sentinel);
+    }
+  }
+
+  function rerenderVisibleTree() {
+    syncBatchBar();
+    if (!forestCache.length) {
+      list.replaceChildren(h('p', { class: 'doc-list__empty' }, t('empty')));
+      return;
+    }
+    const countToKeep = Math.max(ROOT_PAGE_SIZE, renderedRootCount);
+    const slice = forestCache.slice(0, countToKeep);
+    renderedRootCount = slice.length;
+    list.replaceChildren(...slice.map(renderNode));
+    if (renderedRootCount < forestCache.length) {
+      list.append(sentinel);
+    }
   }
 
   async function render() {
@@ -359,13 +430,12 @@ export function mountDocuments(container, { query = {}, name } = {}) {
 
     docsCache = await listDocuments({ type: type || null });
     if (token !== searchSeq) return;
-    syncBatchBar();
-    if (!docsCache.length) {
-      list.replaceChildren(h('p', { class: 'doc-list__empty' }, t('empty')));
-      return;
-    }
-    const forest = buildDocumentForest(docsCache);
-    list.replaceChildren(...forest.map(renderNode));
+    forestCache = buildDocumentForest(docsCache);
+    renderedRootCount = Math.min(
+      forestCache.length,
+      Math.max(ROOT_PAGE_SIZE, renderedRootCount),
+    );
+    rerenderVisibleTree();
   }
 
   const onSearchInput = debounce(render, 180);
@@ -379,6 +449,15 @@ export function mountDocuments(container, { query = {}, name } = {}) {
   };
   document.addEventListener('keydown', onKeyDown);
 
+  const io = typeof IntersectionObserver !== 'undefined'
+    ? new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) {
+        appendNextRootPage();
+      }
+    }, { root: scroller, rootMargin: '0px 240px 0px 240px' })
+    : null;
+  io?.observe(sentinel);
+
   const off = on('documents-changed', render);
 
   if (query.search === '1' || query.q || name === 'search') openSearchPanel();
@@ -386,6 +465,7 @@ export function mountDocuments(container, { query = {}, name } = {}) {
 
   return {
     destroy() {
+      io?.disconnect();
       off();
       document.removeEventListener('keydown', onKeyDown);
       onSearchInput.cancel();

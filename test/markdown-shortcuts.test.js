@@ -1,8 +1,10 @@
-import { test } from 'node:test';
+import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
 
-const { window } = new JSDOM('<!doctype html><body></body>');
+const dom = new JSDOM('<!doctype html><body></body>');
+const { window } = dom;
+after(() => dom.window.close());
 globalThis.window = window;
 globalThis.document = window.document;
 globalThis.Event = window.Event;

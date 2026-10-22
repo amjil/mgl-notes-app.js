@@ -1,9 +1,10 @@
-import { test } from 'node:test';
+import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
 
-const { window } = new JSDOM('<!doctype html><body></body>');
-globalThis.document = window.document;
+const dom = new JSDOM('<!doctype html><body></body>');
+globalThis.document = dom.window.document;
+after(() => dom.window.close());
 
 const { htmlToRich, richToHtml, normalizeSpans } = await import('../src/editor/spans.js');
 const { rowsToTree, treeToRows, diffRows } = await import('../src/editor/bridge.js');
@@ -140,7 +141,6 @@ test('rowsToTree promotes orphan blocks whose parent is missing to root', () => 
 });
 
 test('treeToRows persists collapsed state and extracts searchable text from table', () => {
-  const doc = new JSDOM('').window.document;
   const tree = [
     {
       id: 't1',
@@ -150,14 +150,13 @@ test('treeToRows persists collapsed state and extracts searchable text from tabl
       children: [],
     },
   ];
-  const rows = treeToRows(tree, new Map(), doc);
+  const rows = treeToRows(tree, new Map(), document);
   assert.equal(rows[0].text, 'ᠮᠣᠩᠭᠣᠯ ᠪᠢᠴᠢᠭ');
   const { tree: restored } = rowsToTree(rows);
   assert.equal(restored[0].collapsed, true);
 });
 
 test('treeToRows interpolates order_index without shifting unchanged following siblings', () => {
-  const doc = new JSDOM('').window.document;
   const initialRows = [
     { id: 'a', parent_id: null, type: 'paragraph', text: 'A', order_index: 1000, data_json: null, checked: false },
     { id: 'b', parent_id: null, type: 'paragraph', text: 'B', order_index: 2000, data_json: null, checked: false },
@@ -165,7 +164,7 @@ test('treeToRows interpolates order_index without shifting unchanged following s
   const { tree, snapshot } = rowsToTree(initialRows);
   // Insert new block 'x' between 'a' and 'b'
   tree.splice(1, 0, { id: 'x', type: 'paragraph', html: 'X', text: 'X', children: [] });
-  const nextRows = treeToRows(tree, snapshot, doc);
+  const nextRows = treeToRows(tree, snapshot, document);
   const diff = diffRows(nextRows, snapshot);
 
   assert.equal(diff.created.length, 1);

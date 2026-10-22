@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test \"test/**/*.test.js\""
+    "test": "node --test --test-force-exit \"test/**/*.test.js\""
   },
   "dependencies": {
     "block-editor": "file:../block-editor.js",

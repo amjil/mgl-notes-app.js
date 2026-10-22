@@ -22,7 +22,7 @@ const MN = {
   "tagsHint": "ᠱᠣᠰᠢᠭ᠎ᠠ ᠪᠠᠷ ᠰᠢᠭᠦᠬᠦ",
   "noResults": "ᠣᠯᠳᠠᠭᠰᠠᠨ ᠦᠭᠡᠢ",
   "daily": "ᠡᠳᠦᠷ᠎ᠦᠨ ᠲᠡᠮᠳᠡᠭᠯᠡᠯ",
-  "normal": "ᠡᠩ ᠦᠨ",
+  "normal": "ᠡᠩ᠎ᠦᠨ",
   "all": "ᠪᠦᠬᠦ",
   "newDocument": "ᠰᠢᠨ᠎ᠡ",
   "newSubDocument": "ᠳᠡᠭᠡᠳᠦ",
