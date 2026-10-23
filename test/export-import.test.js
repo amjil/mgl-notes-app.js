@@ -2,11 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildAllBackupPayload,
+  buildDocumentExportHtml,
   htmlToImportText,
   parseAllBackup,
   parseExportLine,
   parseExportText,
 } from '../src/services/export.js';
+import { rowsToTree } from '../src/editor/bridge.js';
 
 test('parseExportLine maps markers back to block types', () => {
   assert.deepEqual(parseExportLine('# Hello'), {
@@ -58,6 +60,36 @@ test('parseExportText falls back to filename when empty', () => {
   assert.equal(title, 'from-file');
   assert.equal(blocks.length, 1);
   assert.equal(blocks[0].type, 'paragraph');
+});
+
+test('HTML export keeps nested blocks and Oyun Qagan Tig font', () => {
+  const { tree } = rowsToTree([
+    {
+      id: 'a',
+      parent_id: null,
+      type: 'paragraph',
+      text: 'root',
+      order_index: 1000,
+      checked: false,
+      data_json: null,
+    },
+    {
+      id: 'b',
+      parent_id: 'a',
+      type: 'paragraph',
+      text: 'child',
+      order_index: 1000,
+      checked: false,
+      data_json: null,
+    },
+  ]);
+  const html = buildDocumentExportHtml({ title: 'Note', tree });
+  assert.match(html, /block-children/);
+  assert.match(html, /data-block-type="paragraph"/);
+  assert.match(html, />root</);
+  assert.match(html, />child</);
+  assert.match(html, /Oyun Qagan Tig/);
+  assert.match(html, /padding-top:\s*28px/);
 });
 
 test('htmlToImportText recovers title and paragraph lines', () => {

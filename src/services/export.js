@@ -3,7 +3,7 @@
  * plus a full-library JSON snapshot (documents + blocks).
  */
 import { getAll, req, transaction } from '../db/idb.js';
-import { decodeDataJson } from '../editor/bridge.js';
+import { decodeDataJson, rowsToTree } from '../editor/bridge.js';
 import { emit } from '../events.js';
 import { t } from '../i18n.js';
 import { orderedBlocks } from '../search/text.js';
@@ -37,16 +37,169 @@ export async function documentToText(documentId) {
   return { title, text: body ? `${title}\n\n${body}` : title };
 }
 
-export async function documentToHtml(documentId) {
-  const { title, text } = await documentToText(documentId);
-  const esc = (s) => String(s).replace(/[&<>]/g, (c) => (
+function escapeHtmlAttr(text) {
+  return String(text ?? '').replace(/[&<>"]/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]
+  ));
+}
+
+function escapeHtmlText(text) {
+  return String(text ?? '').replace(/[&<>]/g, (c) => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]
   ));
-  const paragraphs = text.split('\n').map((line) => `<p>${esc(line) || '&nbsp;'}</p>`).join('\n');
+}
+
+const EXPORT_HEADING_TAG = {
+  'heading-1': 'h1',
+  'heading-2': 'h2',
+  'heading-3': 'h3',
+};
+
+function exportBlockContentHtml(node, ordPath) {
+  const type = node.type || 'paragraph';
+  const inner = node.html || node.text || '';
+
+  if (type === 'divider') return '<hr class="block-divider" />';
+  if (type === 'image') {
+    return `<p class="block-placeholder">[${escapeHtmlText(t('image'))}]</p>`;
+  }
+  if (type === 'bookmark') {
+    const data = node.data || {};
+    if (data.url) {
+      const label = escapeHtmlText(data.title || t('bookmark'));
+      const href = escapeHtmlAttr(data.url);
+      return `<p class="block-content"><a href="${href}" rel="noopener">${label}</a></p>`;
+    }
+    return `<p class="block-placeholder">[${escapeHtmlText(t('bookmark'))}]</p>`;
+  }
+  if (type === 'task') {
+    const checked = node.checked ? ' checked' : '';
+    return `<div class="block-content"><label><input type="checkbox" disabled${checked}> `
+      + `${inner || '<br>'}</label></div>`;
+  }
+  if (type === 'list-item') {
+    return `<div class="block-content"><span class="list-marker">•</span>${inner || '<br>'}</div>`;
+  }
+  if (type === 'ordered-list-item') {
+    const marker = ordPath ? `${ordPath}.` : '1.';
+    return `<div class="block-content"><span class="list-marker">${escapeHtmlText(marker)}</span>`
+      + `${inner || '<br>'}</div>`;
+  }
+  if (type === 'blockquote') {
+    return `<blockquote class="block-content">${inner || '<br>'}</blockquote>`;
+  }
+  const heading = EXPORT_HEADING_TAG[type];
+  if (heading) {
+    return `<div class="block-content"><${heading}>${inner || '<br>'}</${heading}></div>`;
+  }
+  return `<div class="block-content">${inner || '<br>'}</div>`;
+}
+
+function exportNodesHtml(nodes, ordPrefix = '') {
+  let ord = 0;
+  return (nodes || []).map((node) => {
+    let ordPath = '';
+    if (node.type === 'ordered-list-item') {
+      ord += 1;
+      ordPath = ordPrefix ? `${ordPrefix}.${ord}` : String(ord);
+    } else {
+      ord = 0;
+    }
+    const childPrefix = node.type === 'ordered-list-item' ? ordPath : ordPrefix;
+    const content = exportBlockContentHtml(node, ordPath);
+    const kids = node.children?.length
+      ? `<div class="block-children">${exportNodesHtml(node.children, childPrefix)}</div>`
+      : '';
+    const typeAttr = escapeHtmlAttr(node.type || 'paragraph');
+    return `<div class="block-wrapper" data-block-type="${typeAttr}">${content}${kids}</div>`;
+  }).join('\n');
+}
+
+const EXPORT_HTML_BASE_CSS = `
+html, body {
+  margin: 0;
+  padding: 1.5rem;
+  writing-mode: vertical-lr;
+  font-family: "Oyun Qagan Tig", "Noto Sans Mongolian", "Mongolian Baiti", serif;
+  font-size: 20px;
+  line-height: 1.9;
+  color: #1c221e;
+  background: #f4efe4;
+  text-underline-position: under right;
+}
+.doc-title {
+  display: block;
+  margin: 0 14px 0 0;
+  font-size: 1.25em;
+  font-weight: 600;
+}
+.doc-body { display: block; }
+.block-wrapper { display: block; margin: 0 10px 0 0; }
+.block-content { display: block; margin: 0; }
+.block-children {
+  display: block;
+  margin: 0;
+  padding-top: 28px;
+  border-top: 1px solid rgba(120, 95, 50, 0.2);
+}
+.block-children:empty { display: none; padding: 0; border: 0; }
+.block-divider {
+  border: 0;
+  border-top: 3px solid rgba(120, 95, 50, 0.35);
+  margin: 0;
+  padding-top: 10px;
+}
+.list-marker { user-select: none; margin-inline-end: 0.35em; }
+a { color: #2f7d5f; }
+`.trim();
+
+let cachedExportFontFaceCss = null;
+
+function arrayBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+/** Load embedded @font-face for standalone exported HTML files. */
+export async function loadExportFontFaceCss() {
+  if (cachedExportFontFaceCss) return cachedExportFontFaceCss;
+  try {
+    const res = await fetch('/fonts/OyunQaganTig.ttf');
+    if (!res.ok) throw new Error(String(res.status));
+    const b64 = arrayBufferToBase64(await res.arrayBuffer());
+    cachedExportFontFaceCss = `@font-face{font-family:"Oyun Qagan Tig";src:url(data:font/ttf;base64,${b64}) format("truetype");font-display:swap;}`;
+  } catch {
+    cachedExportFontFaceCss = '';
+  }
+  return cachedExportFontFaceCss;
+}
+
+/** Build a full HTML document from an export tree ({ tree } from rowsToTree). */
+export function buildDocumentExportHtml({ title, tree, fontFaceCss = '' }) {
+  const esc = escapeHtmlText;
+  const body = exportNodesHtml(tree || []);
+  const css = fontFaceCss ? `${fontFaceCss}\n${EXPORT_HTML_BASE_CSS}` : EXPORT_HTML_BASE_CSS;
+  return `<!doctype html><html lang="mn"><head><meta charset="utf-8">`
+    + `<meta name="viewport" content="width=device-width,initial-scale=1">`
+    + `<title>${esc(title)}</title><style>${css}</style></head><body>`
+    + `<header class="doc-title">${esc(title)}</header>`
+    + `<article class="doc-body">${body}</article></body></html>`;
+}
+
+export async function documentToHtml(documentId) {
+  const doc = await getDocument(documentId);
+  const rows = (await getBlocks(documentId)).filter((b) => b && !b.deleted_at);
+  const { tree } = rowsToTree(rows);
+  const title = doc?.title || t('untitled');
+  const fontFaceCss = await loadExportFontFaceCss();
   return {
     title,
-    html: `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title></head>`
-      + `<body style="writing-mode:vertical-lr;font-family:serif">${paragraphs}</body></html>`,
+    html: buildDocumentExportHtml({ title, tree, fontFaceCss }),
   };
 }
 
