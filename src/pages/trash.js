@@ -99,7 +99,7 @@ export function mountTrash(container) {
       confirmLabel: t('destroyForever'),
       danger: true,
     });
-    if (ok) await destroyDocument(id);
+    if (ok) await destroyDocuments([id]);
   }
 
   async function render() {
