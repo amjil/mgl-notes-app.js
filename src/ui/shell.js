@@ -44,8 +44,9 @@ export function createShell({ onLogout }) {
     onclick: () => toggleImeMode(),
   });
   const renderIme = (mode) => {
-    imeBtn.textContent = mode === 'mongol' ? 'ᠮ' : 'A';
+    imeBtn.textContent = mode === 'mongol' ? 'ᠮ' : mode === 'latin' ? 'A' : '⌨';
     imeBtn.classList.toggle('is-latin', mode !== 'mongol');
+    imeBtn.title = mode === 'system' ? t('imeSystem') : t('imeToggle');
   };
   renderIme(imeMode());
   offs.push(onImeModeChange(renderIme));

@@ -34,8 +34,9 @@ export function mountSettings(container) {
     }, `${Math.round(n * 100)}%`)));
 
   const imeSelect = h('select', { class: 'mn-select settings__select' },
-    h('option', { value: 'mongol', selected: imeDefault() === 'mongol' }, 'MN'),
-    h('option', { value: 'latin', selected: imeDefault() === 'latin' }, 'Latin'));
+    h('option', { value: 'mongol', selected: imeDefault() === 'mongol' }, t('langMn')),
+    h('option', { value: 'latin', selected: imeDefault() === 'latin' }, 'Latin'),
+    h('option', { value: 'system', selected: imeDefault() === 'system' }, t('imeSystem')));
 
   const langSelect = h('select', { class: 'mn-select settings__select' },
     h('option', { value: 'mn', selected: locale() === 'mn' }, t('langMn')),

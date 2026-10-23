@@ -3,7 +3,8 @@
  * message-composer.js, utils/ime-keyboard.js, utils/ime.js).
  *
  * Desktop: physical keyboard → IME candidate popup.
- * Mobile:  mgl-web-ime virtual keyboard + candidate bar; the OS keyboard is suppressed.
+ * Mobile:  mgl-web-ime virtual keyboard + candidate bar; the OS keyboard is suppressed
+ *           only when built-in IME is active ('mongol' | 'latin'). 'system' uses native IME.
  */
 import {
   CandidateProvider,
@@ -81,16 +82,50 @@ export function imeMode() {
   return currentMode;
 }
 
-export function setImeMode(mode) {
-  currentMode = mode;
-  instances.forEach((ime) => {
+function isTargetFocused(target) {
+  const active = document.activeElement;
+  return Boolean(target && (target === active || target.contains?.(active)));
+}
+
+function applyModeToInstance(ime, mode) {
+  const target = ime.targetEl;
+  const mobile = preferVirtualIme();
+  if (mode === 'system') {
+    ime.disable();
+    if (mobile) ime.setKeyboardMode('system');
+    dismissVirtualIme(ime);
+    if (owner === ime) owner = null;
+    restoreNativeKeyboard(target);
+  } else {
+    ime.enable();
     if (ime.getState().mode !== mode) ime.setMode(mode);
-  });
-  modeListeners.forEach((fn) => fn(mode));
+    if (mobile) ime.setKeyboardMode('virtual');
+    if (ime.keyboardMode === 'virtual') {
+      suppressSystemKeyboard(target);
+      if (isTargetFocused(target)) {
+        owner = ime;
+        ime.showKeyboard();
+      } else {
+        ime.hideKeyboard();
+      }
+    }
+  }
+}
+
+export function setImeMode(mode) {
+  const next = mode === 'latin' ? 'latin' : mode === 'system' ? 'system' : 'mongol';
+  currentMode = next;
+  instances.forEach((ime) => applyModeToInstance(ime, next));
+  modeListeners.forEach((fn) => fn(next));
 }
 
 export function toggleImeMode() {
-  setImeMode(currentMode === 'mongol' ? 'latin' : 'mongol');
+  const next = currentMode === 'mongol'
+    ? 'latin'
+    : currentMode === 'latin'
+      ? 'system'
+      : 'mongol';
+  setImeMode(next);
 }
 
 export function onImeModeChange(fn) {
@@ -100,8 +135,9 @@ export function onImeModeChange(fn) {
 
 function register(ime) {
   instances.add(ime);
-  if (ime.getState().mode !== currentMode) ime.setMode(currentMode);
+  applyModeToInstance(ime, currentMode);
   ime.on('mgl-ime-mode-change', (detail) => {
+    if (currentMode === 'system') return;
     const mode = detail && detail.mode;
     if (mode && mode !== currentMode) setImeMode(mode);
   });
@@ -118,7 +154,7 @@ function isEditable(el) {
 }
 
 export function suppressSystemKeyboard(root) {
-  if (!root) return;
+  if (!root || currentMode === 'system') return;
   const apply = (el) => {
     if (!isEditable(el)) return;
     el.setAttribute('inputmode', 'none');
@@ -127,6 +163,19 @@ export function suppressSystemKeyboard(root) {
   apply(root);
   root.querySelectorAll?.('[contenteditable], input, textarea').forEach(apply);
   navigator.virtualKeyboard?.hide?.();
+}
+
+export function restoreNativeKeyboard(root) {
+  if (!root) return;
+  const restore = (el) => {
+    if (!isEditable(el)) return;
+    if (el.getAttribute('inputmode') === 'none') el.removeAttribute('inputmode');
+    if (el.getAttribute('virtualkeyboardpolicy') === 'manual') {
+      el.removeAttribute('virtualkeyboardpolicy');
+    }
+  };
+  restore(root);
+  root.querySelectorAll?.('[contenteditable], input, textarea').forEach(restore);
 }
 
 let owner = null;
@@ -159,12 +208,19 @@ export function dismissOwnedIme() {
  * `keepSelector` marks chrome (toolbar buttons) whose taps must not close it.
  */
 function attachVirtualKeyboard(ime, { keepSelector = '' } = {}) {
-  if (ime.keyboardMode !== 'virtual') return () => {};
-  ime.hideKeyboard();
   const target = ime.targetEl;
+  const mobile = preferVirtualIme();
+  if (ime.keyboardMode === 'virtual') ime.hideKeyboard();
   let claimedAt = 0;
 
-  const claim = () => {
+  const onTargetFocus = () => {
+    if (currentMode === 'system' || !ime.core?.state?.enabled) {
+      dismissVirtualIme(ime);
+      if (owner === ime) owner = null;
+      restoreNativeKeyboard(target);
+      return;
+    }
+    if (ime.keyboardMode !== 'virtual') return;
     suppressSystemKeyboard(target);
     instances.forEach((other) => {
       if (other === ime) return;
@@ -175,11 +231,16 @@ function attachVirtualKeyboard(ime, { keepSelector = '' } = {}) {
     claimedAt = performance.now();
     ime.showKeyboard();
   };
+
   const release = () => {
     if (owner !== ime) return;
     dismissVirtualIme(ime);
     owner = null;
   };
+
+  target?.addEventListener('focusin', onTargetFocus);
+  target?.addEventListener('pointerdown', onTargetFocus);
+
   const onKeyPointer = (e) => e.preventDefault();
   const onDocPointer = (e) => {
     if (e.pointerType === 'touch' || e.pointerType === 'pen') lastTouchAt = performance.now();
@@ -193,21 +254,22 @@ function attachVirtualKeyboard(ime, { keepSelector = '' } = {}) {
     release();
   };
 
-  target?.addEventListener('focusin', claim);
-  target?.addEventListener('pointerdown', claim);
-  ime.keyboardEl?.addEventListener('pointerdown', onKeyPointer);
-  ime.keyboardEl?.addEventListener('mousedown', onKeyPointer);
-  document.addEventListener('pointerdown', onDocPointer, true);
+  if (mobile) {
+    ime.keyboardEl?.addEventListener('pointerdown', onKeyPointer);
+    ime.keyboardEl?.addEventListener('mousedown', onKeyPointer);
+    document.addEventListener('pointerdown', onDocPointer, true);
+  }
 
-  const ae = document.activeElement;
-  if (target && (target === ae || target.contains(ae))) claim();
+  if (isTargetFocused(target)) onTargetFocus();
 
   return () => {
-    target?.removeEventListener('focusin', claim);
-    target?.removeEventListener('pointerdown', claim);
-    ime.keyboardEl?.removeEventListener('pointerdown', onKeyPointer);
-    ime.keyboardEl?.removeEventListener('mousedown', onKeyPointer);
-    document.removeEventListener('pointerdown', onDocPointer, true);
+    target?.removeEventListener('focusin', onTargetFocus);
+    target?.removeEventListener('pointerdown', onTargetFocus);
+    if (mobile) {
+      ime.keyboardEl?.removeEventListener('pointerdown', onKeyPointer);
+      ime.keyboardEl?.removeEventListener('mousedown', onKeyPointer);
+      document.removeEventListener('pointerdown', onDocPointer, true);
+    }
     if (owner === ime) {
       dismissVirtualIme(ime);
       owner = null;
@@ -248,7 +310,15 @@ export function trackImeKeyboard() {
     apply(el);
   };
 
-  document.addEventListener('mgl-ime-keyboard-show', (e) => watch(e.target));
+  document.addEventListener('mgl-ime-keyboard-show', (e) => {
+    if (currentMode === 'system') {
+      instances.forEach((ime) => dismissVirtualIme(ime));
+      owner = null;
+      watch(null);
+      return;
+    }
+    watch(e.target);
+  });
   document.addEventListener('mgl-ime-keyboard-hide', (e) => {
     const visible = document.querySelector('mgl-keyboard[visible]');
     if (visible && visible !== e.target) watch(visible);
@@ -262,14 +332,20 @@ export function trackImeKeyboard() {
 
 function createIme(options, { keepSelector } = {}) {
   const virtual = preferVirtualIme();
+  const builtInKb = currentMode !== 'system';
+  const initialEngineMode = currentMode === 'latin' ? 'latin' : 'mongol';
   const ime = new MglIME({
     profile: virtual ? 'mobile' : 'auto',
-    keyboard: virtual ? 'virtual' : 'auto',
+    keyboard: virtual ? (builtInKb ? 'virtual' : 'system') : 'auto',
+    mode: initialEngineMode,
     provider: imeProvider(),
     mount: document.body,
     ...options,
   });
-  if (ime.keyboardMode === 'virtual') suppressSystemKeyboard(ime.targetEl);
+  if (currentMode === 'system') ime.disable();
+  if (ime.keyboardMode === 'virtual' && builtInKb) {
+    suppressSystemKeyboard(ime.targetEl);
+  }
   const detachKeyboard = attachVirtualKeyboard(ime, { keepSelector });
   register(ime);
   return {
@@ -298,11 +374,13 @@ export function attachEditorIme(host, editor, { keepSelector } = {}) {
   const handle = createIme({ target: root(), adapter }, { keepSelector });
   const { ime } = handle;
 
-  let onFocusIn = null;
-  if (ime.keyboardMode === 'virtual') {
-    onFocusIn = (e) => suppressSystemKeyboard(e.target);
-    root().addEventListener('focusin', onFocusIn);
-  }
+  const syncKbAttr = (target) => {
+    if (currentMode === 'system') restoreNativeKeyboard(target);
+    else if (ime.keyboardMode === 'virtual') suppressSystemKeyboard(target);
+  };
+
+  const onFocusIn = (e) => syncKbAttr(e.target);
+  root().addEventListener('focusin', onFocusIn);
 
   let scrollRaf = 0;
   const onScroll = () => {
@@ -322,10 +400,10 @@ export function attachEditorIme(host, editor, { keepSelector } = {}) {
     ime,
     /** Re-apply inputmode=none after the editor rebuilt its blocks. */
     refresh() {
-      if (ime.keyboardMode === 'virtual') suppressSystemKeyboard(root());
+      syncKbAttr(root());
     },
     destroy() {
-      if (onFocusIn) root().removeEventListener('focusin', onFocusIn);
+      root().removeEventListener('focusin', onFocusIn);
       content.removeEventListener('scroll', onScroll);
       if (scrollRaf) cancelAnimationFrame(scrollRaf);
       handle.destroy();
@@ -335,7 +413,7 @@ export function attachEditorIme(host, editor, { keepSelector } = {}) {
 
 export async function commitPending(ime) {
   const state = ime?.getState?.();
-  if (!state) return;
+  if (!state || !state.enabled) return;
   if (state.composition || (state.candidates?.length ?? 0) > 0) {
     await ime.core?.commitCurrent?.({ addSpaceAfter: false });
   }

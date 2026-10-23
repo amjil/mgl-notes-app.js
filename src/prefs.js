@@ -31,14 +31,14 @@ export function applyFontScale(scale = fontScale()) {
 
 export function imeDefault() {
   const v = localStorage.getItem(IME_KEY);
-  return v === 'latin' || v === 'mongol' ? v : 'mongol';
+  return v === 'latin' || v === 'mongol' || v === 'system' ? v : 'mongol';
 }
 
 export function setImeDefault(mode) {
-  const next = mode === 'latin' ? 'latin' : 'mongol';
-  localStorage.setItem(IME_KEY, next);
-  if (imeMode() !== next) setImeMode(next);
-  return next;
+  const clean = mode === 'latin' ? 'latin' : mode === 'system' ? 'system' : 'mongol';
+  localStorage.setItem(IME_KEY, clean);
+  setImeMode(clean);
+  return clean;
 }
 
 export function dailyTemplate() {
