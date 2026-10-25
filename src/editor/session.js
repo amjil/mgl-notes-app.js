@@ -8,6 +8,7 @@ import { applyBlockChanges, getBlocks } from '../services/notes.js';
 import { storeImageFile, warmAssetUrls } from '../services/assets.js';
 import { clearLinksForIds, handleLinkTap, rebuildLinksForRows } from '../services/links.js';
 import { diffRows, nextSnapshot, rowsToTree, treeToRows } from './bridge.js';
+import { createTablePlugin } from './table.js';
 import { createPlaceholderPlugin } from './placeholder.js';
 import { createImagePlugin, pickImageFile, setPendingImageData } from './image.js';
 import { createBookmarkPlugin, promptBookmark, setPendingBookmark } from './bookmark.js';
@@ -36,7 +37,10 @@ export function createEditorSession(host, documentId, { focusBlockId = null } = 
   let history;
   const editor = createBlockEditor(host, {
     mode: 'notes',
+    showPrint: false,
+    builtin: false,
     plugins: [
+      createTablePlugin(),
       createPlaceholderPlugin(),
       createImagePlugin(),
       createBookmarkPlugin(),

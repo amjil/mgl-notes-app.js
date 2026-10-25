@@ -65,6 +65,104 @@
   border-top-color: var(--app-line);
 }
 
+/*
+ * Vertical-lr: blocks sit left → right. Long copy wraps into extra columns
+ * (block-size grows). Default block boxes keep a stale inline-size, so
+ * selection chrome and siblings overlap — shrink-wrap block-size and fill
+ * the editor scrollport height so wrap uses the full column.
+ */
+.note-editor .mgl-editor-scope .editor-content > .block-wrapper:not(
+    [data-block-type="table"],
+    [data-block-type="image"],
+    [data-block-type="divider"],
+    [data-block-type="bookmark"],
+    [data-block-type="flashcard"],
+    [data-block-type="code"],
+    [data-block-type="unsupported"]
+  ),
+.note-editor .mgl-editor-scope .block-children > .block-wrapper:not(
+    [data-block-type="table"],
+    [data-block-type="image"],
+    [data-block-type="divider"],
+    [data-block-type="bookmark"],
+    [data-block-type="flashcard"],
+    [data-block-type="code"],
+    [data-block-type="unsupported"]
+  ) {
+  display: inline-block;
+  vertical-align: top;
+  width: max-content;
+  min-height: 100%;
+  box-sizing: border-box;
+}
+
+.note-editor .mgl-editor-scope .block-children {
+  width: max-content;
+}
+
+.note-editor .mgl-editor-scope .block-wrapper:is(
+    [data-block-type="list-item"],
+    [data-block-type="ordered-list-item"],
+    [data-block-type="task"],
+    [data-block-type="paragraph"],
+    [data-block-type="heading-1"],
+    [data-block-type="heading-2"],
+    [data-block-type="heading-3"],
+    [data-block-type="blockquote"],
+    [data-block-type="callout"],
+    [data-block-type="toggle"]
+  ) > .block-content,
+.note-editor .mgl-editor-scope .block-wrapper[data-block-type="toggle"] .toggle-title {
+  min-height: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+/*
+ * Vertical-lr list columns: the marker sits at the top of the first column
+ * (bullet 6px + 8px gap, number/checkbox 13px + 8px gap — block-editor marker
+ * metrics). Wrapped columns must start level with the text under the marker.
+ */
+.note-editor .mgl-editor-scope .block-wrapper[data-block-type="list-item"] > .block-content {
+  --list-hang: 14px;
+}
+
+.note-editor .mgl-editor-scope .block-wrapper:is(
+    [data-block-type="ordered-list-item"],
+    [data-block-type="task"]
+  ) > .block-content {
+  --list-hang: 21px;
+}
+
+.note-editor .mgl-editor-scope .block-wrapper:is(
+    [data-block-type="list-item"],
+    [data-block-type="ordered-list-item"],
+    [data-block-type="task"]
+  ) > .block-content {
+  text-indent: var(--list-hang) hanging;
+}
+
+.note-editor .mgl-editor-scope .editor-content .list-marker {
+  text-indent: 0;
+}
+
+.note-editor .mgl-editor-scope .editor-content [data-block-type="task"] > .block-content > input[type="checkbox"] {
+  width: 13px;
+  height: 13px;
+  text-indent: 0;
+}
+
+@supports not (text-indent: 1px hanging) {
+  .note-editor .mgl-editor-scope .block-wrapper:is(
+      [data-block-type="list-item"],
+      [data-block-type="ordered-list-item"],
+      [data-block-type="task"]
+    ) > .block-content {
+    padding-top: var(--list-hang);
+    text-indent: calc(var(--list-hang) * -1);
+  }
+}
+
 .note-editor .mgl-editor-scope .editor-content blockquote {
   border-top-color: var(--app-accent-2);
   color: var(--app-muted);

@@ -9,7 +9,7 @@ const LOCALE_KEY = 'mgl.locale';
 const MN = {
   "appName": "ᠲᠡᠮᠳᠡᠭ",
   "today": "ᠥᠨᠦᠳᠦᠷ",
-  "documents": "ᠲᠡᠮᠳᠡᠭ",
+  "documents": "ᠲᠡᠮᠳᠡᠭᠯᠡᠯ",
   "tasks": "ᠡᠭᠦᠷᠭᠡ",
   "tasksOpen": "ᠬᠢᠬᠦ",
   "tasksDone": "ᠳᠠᠭᠤᠰᠤᠭᠰᠠᠨ",
