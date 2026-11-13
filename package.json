@@ -8,7 +8,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test --test-force-exit \"test/**/*.test.js\""
+    "test": "node --test --test-force-exit \"test/**/*.test.js\"",
+    "update:upstreams": "node scripts/update-upstreams.mjs",
+    "update:ime": "node scripts/update-upstreams.mjs mgl-web-ime"
   },
   "dependencies": {
     "block-editor": "file:../block-editor.js",
