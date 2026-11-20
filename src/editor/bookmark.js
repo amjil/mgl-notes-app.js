@@ -27,7 +27,7 @@ const CSS = `
 }
 .mgl-editor-scope .mgl-bookmark .bm-title { font-weight: 600; font-size: 14px; margin-bottom: 4px; word-break: break-word; }
 .mgl-editor-scope .mgl-bookmark .bm-desc { font-size: 12px; color: var(--mn-muted, #666); margin-bottom: 6px; word-break: break-word; }
-.mgl-editor-scope .mgl-bookmark .bm-url { font-size: 11px; color: #1565c0; word-break: break-all; }
+.mgl-editor-scope .mgl-bookmark .bm-url { font-size: 11px; color: var(--app-wiki-link, #1d63b8); word-break: break-all; }
 `;
 
 function domainInitial(url) {

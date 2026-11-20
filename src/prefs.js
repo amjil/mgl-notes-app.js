@@ -8,8 +8,8 @@ const FONT_KEY = 'mgl.fontScale';
 const IME_KEY = 'mgl.imeDefault';
 const DAILY_TEMPLATE_KEY = 'mgl.dailyTemplate';
 const THEME_KEY = 'mgl.theme'; // 'auto' | 'light' | 'dark'
-const THEME_COLOR_LIGHT = '#f4efe4';
-const THEME_COLOR_DARK = '#141816';
+const THEME_COLOR_LIGHT = '#f6f2e9';
+const THEME_COLOR_DARK = '#111513';
 const darkMq = globalThis.matchMedia?.('(prefers-color-scheme: dark)');
 
 export function fontScale() {

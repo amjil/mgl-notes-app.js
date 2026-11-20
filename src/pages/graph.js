@@ -223,6 +223,7 @@ export function mountGraph(container) {
     const colText = style.getPropertyValue('--app-text').trim() || '#1c221e';
     const colMuted = style.getPropertyValue('--app-muted').trim() || '#5f6a5c';
     const colLine = style.getPropertyValue('--app-line-strong').trim() || 'rgba(120,95,50,0.38)';
+    const colDaily = style.getPropertyValue('--app-daily-color').trim() || '#2b6cb0';
     const fontMongol = style.getPropertyValue('--app-font-mongol').trim() || 'serif';
 
     ctx.save();
@@ -264,7 +265,7 @@ export function mountGraph(container) {
       if (n.kind === 'tag') {
         ctx.fillStyle = colGold;
       } else if (n.kind === 'daily') {
-        ctx.fillStyle = '#3b82f6';
+        ctx.fillStyle = colDaily;
       } else if (n.kind === 'ghost') {
         ctx.fillStyle = 'transparent';
         ctx.strokeStyle = colMuted;

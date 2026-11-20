@@ -219,7 +219,7 @@ button.app-rail__link {
   display: block;
   position: fixed;
   inset: 0;
-  background: rgba(28, 34, 30, 0.28);
+  background: var(--app-backdrop);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.25s ease;

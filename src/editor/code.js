@@ -14,7 +14,7 @@ const CSS = `
   margin: 0 10px 0 0;
   border: 1px solid var(--app-line-strong, #ccc);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--app-bg-3, #e7dfcf) 55%, var(--app-bg-2, #fff));
+  background: var(--app-code-bg);
   font-family: ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
   overflow: hidden;
 }

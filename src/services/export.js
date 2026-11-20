@@ -136,6 +136,7 @@ html, body {
 .doc-body { display: block; }
 .block-wrapper { display: block; margin: 0 10px 0 0; }
 .block-content { display: block; margin: 0; }
+[data-block-type="paragraph"] > .block-content { text-indent: 2em; }
 .block-children {
   display: block;
   margin: 0;

@@ -131,22 +131,23 @@
   border-block-start: 2px solid color-mix(in srgb, var(--app-accent) 55%, var(--app-line));
   border-radius: 0.75rem;
   background: color-mix(in srgb, var(--app-bg-2) 92%, transparent);
-  transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+  transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
 }
 
 .doc-card:hover {
   border-color: var(--app-line-strong);
-  background: color-mix(in srgb, var(--app-bg-2) 98%, transparent);
-  box-shadow: 0 8px 22px color-mix(in srgb, var(--app-text) 8%, transparent);
+  background: var(--app-bg-2);
+  box-shadow: var(--app-card-shadow);
 }
 
 .doc-card--daily {
-  border-block-start-color: var(--app-accent);
-  background: color-mix(in srgb, var(--app-accent-soft) 60%, var(--app-bg-2));
+  border-block-start-color: var(--app-daily-color, var(--app-accent));
+  background: color-mix(in srgb, var(--app-accent-soft) 50%, var(--app-bg-2));
 }
 
 .doc-card.is-selected {
   border-color: var(--app-accent);
+  background: color-mix(in srgb, var(--app-accent-soft) 35%, var(--app-bg-2));
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--app-accent) 40%, transparent);
 }
 
@@ -349,7 +350,7 @@
 
 .doc-card__delete:hover,
 .doc-card__action--destroy:hover {
-  background: rgba(179, 58, 43, 0.1);
+  background: var(--app-danger-soft);
   color: var(--app-danger);
 }
 
@@ -359,9 +360,9 @@
 }
 
 .doc-card--trash {
-  border-color: color-mix(in srgb, var(--app-danger) 22%, var(--app-line));
-  border-block-start-color: color-mix(in srgb, var(--app-danger) 70%, var(--app-line));
-  background: color-mix(in srgb, rgba(179, 58, 43, 0.06) 70%, var(--app-bg-2));
+  border-color: color-mix(in srgb, var(--app-danger) 24%, var(--app-line));
+  border-block-start-color: color-mix(in srgb, var(--app-danger) 72%, var(--app-line));
+  background: color-mix(in srgb, var(--app-danger-soft) 55%, var(--app-bg-2));
 }
 
 .doc-card--trash .doc-card__open {
@@ -419,9 +420,11 @@
   z-index: var(--z-popover, 20);
   padding: 0.45rem;
   border-radius: 0.85rem;
-  border: 1px solid var(--app-line);
-  background: var(--app-bg);
-  box-shadow: 0 10px 28px color-mix(in srgb, #000 14%, transparent);
+  border: 1px solid var(--app-line-strong);
+  background: var(--app-surface-elevated);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: var(--app-shadow);
 }
 
 .page-head__search-float[hidden] {
@@ -478,10 +481,11 @@
 
 .search-mark,
 mark.search-mark {
-  background: color-mix(in srgb, var(--app-accent-2) 35%, transparent);
-  color: inherit;
-  border-radius: 0.15rem;
-  padding: 0 0.05em;
+  background: color-mix(in srgb, var(--app-accent-2) 28%, transparent);
+  color: var(--app-text);
+  font-weight: 600;
+  border-radius: 0.2rem;
+  padding: 0.05em 0.1em;
 }
 
 /* ---------- Tags browse ----------------------------------------------- */
@@ -514,18 +518,16 @@ mark.search-mark {
 /* ---------- Open tasks ------------------------------------------------ */
 
 .task-card {
-  min-block-size: 4.6rem;
-  max-inline-size: 18rem;
+  min-block-size: 3.8rem;
+  max-inline-size: 24rem;
   align-items: center;
-  justify-content: center;
+  padding-inline-start: 0.55rem;
 }
 
 .task-card__check {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.45rem 0.35rem;
+  align-self: center;
+  cursor: pointer;
+  margin-inline-end: 0.2rem;
 }
 
 .task-card__box {
@@ -552,9 +554,17 @@ mark.search-mark {
   max-inline-size: 16rem;
 }
 
-.task-card__src {
+.task-card__text.is-checked {
+  text-decoration: line-through;
+  color: var(--app-muted);
+  opacity: 0.75;
+}
+
+.task-card__src,
+.task-card__source {
   font-size: 12px;
   color: var(--app-muted);
+  opacity: 0.85;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1061,7 +1071,9 @@ mark.search-mark {
   position: fixed;
   inset: 0;
   z-index: calc(var(--z-menu) - 1);
-  background: rgba(28, 34, 30, 0.28);
+  background: var(--app-backdrop);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
   writing-mode: horizontal-tb;
   opacity: 0;
   pointer-events: none;
@@ -1082,7 +1094,6 @@ mark.search-mark {
   bottom: var(--app-ime-kb);
   box-sizing: border-box;
   display: flex;
-  /* column in vertical-lr → left → right: list then chrome */
   flex-direction: column;
   align-items: stretch;
   gap: 0.65rem;
@@ -1090,12 +1101,13 @@ mark.search-mark {
   max-width: 100%;
   height: auto;
   min-height: 0;
-  padding: 0.85rem calc(0.55rem + env(safe-area-inset-right, 0px))
-    0.85rem 0.55rem;
-  border-left: 1px solid var(--app-line);
+  padding: 0.85rem calc(0.55rem + env(safe-area-inset-right, 0px)) 0.85rem 0.55rem;
+  border-left: 1px solid var(--app-line-strong);
   border-radius: 1rem 0 0 1rem;
-  background: var(--app-bg-2);
-  box-shadow: -8px 0 28px rgba(28, 34, 30, 0.14);
+  background: var(--app-surface-elevated);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: var(--app-shadow);
   writing-mode: vertical-lr;
   -webkit-writing-mode: vertical-lr;
   text-orientation: mixed;
@@ -1202,14 +1214,17 @@ mark.search-mark {
 /* Match mgl-xamt-app field chrome (0.55rem, not pill). */
 .settings__input,
 .settings__select.mn-select-host,
-.settings .mn-select-host.settings__select {
+.settings .mn-select-host.settings__select,
+.settings__textarea {
   border-radius: 0.55rem;
   padding: 0.7rem 0.6rem;
   inline-size: clamp(8rem, 40vh, 18rem);
   max-inline-size: 100%;
-  background: var(--app-bg);
-  border: 1px solid var(--app-line);
+  background: var(--app-bg-2);
+  border: 1px solid var(--app-line-strong);
+  color: var(--app-text);
   box-sizing: border-box;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 
 .settings__select.mn-select-host,
@@ -1227,8 +1242,10 @@ mark.search-mark {
 }
 
 .settings__input:focus,
-.settings .mn-select-host.settings__select:focus-within {
+.settings .mn-select-host.settings__select:focus-within,
+.settings__textarea:focus {
   border-color: var(--app-accent);
+  box-shadow: 0 0 0 3px var(--app-accent-soft);
   outline: none;
 }
 
@@ -1247,20 +1264,12 @@ mark.search-mark {
 }
 
 .settings__textarea {
-  border-radius: 0.55rem;
-  padding: 0.7rem 0.6rem;
   inline-size: clamp(10rem, 48vh, 22rem);
   min-block-size: 8rem;
   resize: both;
   writing-mode: vertical-lr;
   font-family: var(--app-font-mongol);
   line-height: 1.7;
-  background: var(--app-bg);
-}
-
-.settings__textarea:focus {
-  border-color: var(--app-accent);
-  outline: none;
 }
 
 .settings__hint {
@@ -1417,16 +1426,16 @@ mark.search-mark {
   -webkit-writing-mode: vertical-lr;
   text-orientation: mixed;
   display: flex;
-  flex-direction: column; /* left → right under vertical-lr */
+  flex-direction: column;
   align-items: flex-start;
   gap: 1.5rem;
   padding: 1.6rem 1.3rem;
-  border: 1px solid var(--app-line);
+  border: 1px solid var(--app-line-strong);
   border-radius: 1.05rem;
-  background: color-mix(in srgb, var(--app-bg-2) 94%, transparent);
-  box-shadow: 0 14px 40px color-mix(in srgb, var(--app-text) 10%, transparent);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: var(--app-surface-elevated);
+  box-shadow: var(--app-shadow);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   max-inline-size: calc(var(--app-vh) - 2rem);
   box-sizing: border-box;
   overflow: auto;
@@ -1614,10 +1623,10 @@ mark.search-mark {
   min-block-size: 16rem;
   padding: 1.5rem 1.25rem;
   border: 1px solid var(--app-line);
-  border-block-start: 2px solid var(--app-accent);
+  border-block-start: 3px solid var(--app-accent);
   border-radius: 0.85rem;
-  background: color-mix(in srgb, var(--app-bg-2) 94%, transparent);
-  box-shadow: 0 10px 30px color-mix(in srgb, var(--app-text) 8%, transparent);
+  background: var(--app-surface-elevated);
+  box-shadow: var(--app-card-shadow);
   box-sizing: border-box;
 }
 
@@ -1665,24 +1674,3 @@ mark.search-mark {
   gap: 1rem;
 }
 
-/* ---------- Tasks page (aggregated filter) -------------------------------- */
-
-.task-card {
-  padding-inline-start: 0.55rem;
-}
-
-.task-card__check {
-  align-self: center;
-  cursor: pointer;
-  margin-inline-end: 0.2rem;
-}
-
-.task-card__text.is-checked {
-  text-decoration: line-through;
-  color: var(--app-muted);
-}
-
-.task-card__source {
-  font-size: 12px;
-  opacity: 0.8;
-}
